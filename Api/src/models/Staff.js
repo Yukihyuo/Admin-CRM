@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const userSchema = new mongoose.Schema({
+const staffSchema = new mongoose.Schema({
   _id: {
     type: String,
     // Genera un ObjectId nuevo y lo convierte a string por defecto
@@ -40,5 +40,5 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-const User = mongoose.model('User', userSchema);
-export default User;
+const Staff = mongoose.model('Staff', staffSchema);
+export default Staff;

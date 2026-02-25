@@ -8,37 +8,70 @@ import Pages from "./routes/pages/page";
 import Roles from "./routes/roles/page";
 import Sales from "./routes/sales/page";
 import Schedule from "./routes/schedule/page";
-import Users from "./routes/users/page";
 import Layout from "./components/layout/Layout";
+import Pruebas from "./routes/pruebas/page";
+import ProtectedModule from "./components/global/ProtectedModule";
+import Stores from "./routes/stores/page";
+import Staff from "./routes/staff/page";
+import Clients from "./routes/clients/page";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Dashboard />,
+    element: <ProtectedModule page="Dashboard" type="read" method="block"  >
+      <Dashboard />
+    </ProtectedModule>,
   },
   {
     path: "/roles",
-    element: <Roles />,
+    element: <ProtectedModule page="Roles" type="read" method="block" >
+      <Roles />
+    </ProtectedModule>,
   },
   {
     path: "/pages",
-    element: <Pages />,
+    element: <ProtectedModule page="Pages" type="read" method="block" >
+      <Pages />
+    </ProtectedModule>,
   },
   {
-    path: "/users",
-    element: <Users />,
+    path: "/stores",
+    element: <ProtectedModule page="Stores" type="read" method="block" >
+      <Stores />
+    </ProtectedModule>,
+  },
+  {
+    path: "/staff",
+    element: <ProtectedModule page="Staff" type="read" method="block" >
+      <Staff />
+    </ProtectedModule>,
+  }, {
+    path: "/clients",
+    element: <ProtectedModule page="Staff" type="read" method="block" >
+      <Clients />
+    </ProtectedModule>,
   },
   {
     path: "/inventory",
-    element: <Inventory />,
+    element: <ProtectedModule page="Inventory" type="read" method="block" >
+      <Inventory />
+    </ProtectedModule>,
   },
   {
     path: "/sales",
-    element: <Sales />,
+    element: <ProtectedModule page="Sales" type="read" method="block" >
+      <Sales />
+    </ProtectedModule>,
   },
   {
     path: "/schedule",
-    element: <Schedule />,
+    element: <ProtectedModule page="Schedule" type="read" method="block" >
+      <Schedule />
+    </ProtectedModule>,
+  },
+  {
+    path: "/pruebas",
+    element: <Pruebas />,
   },
 ]);
 

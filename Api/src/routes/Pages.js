@@ -92,14 +92,13 @@ router.get('/getAll', async (req, res) => {
     // Obtener módulos para cada página
     const pagesWithModules = await Promise.all(
       pages.map(async (page) => {
-        const modules = await Module.find({ _id: { $in: page.modules } });
+        const modules = await Module.find({ pageId: page._id });
         return {
           ...page.toObject(),
           moduleDetails: modules
         };
       })
     );
-
     res.status(200).json({
       message: 'Páginas obtenidas exitosamente',
       count: pagesWithModules.length,
@@ -129,7 +128,7 @@ router.get('/getById/:id', async (req, res) => {
     }
 
     // Obtener módulos asociados
-    const modules = await Module.find({ _id: { $in: page.modules } });
+    const modules = await Module.find({ pageId: page._id });
 
     res.status(200).json({
       message: 'Página obtenida exitosamente',

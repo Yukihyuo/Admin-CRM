@@ -5,6 +5,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: () => new mongoose.Types.ObjectId().toString()
   },
+  storeId: {
+    type: String,
+    required: true,
+    ref: 'Store'
+  },
   name: {
     type: String,
     required: true

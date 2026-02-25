@@ -1,16 +1,26 @@
 // Configuración de la API
 export const API_URL = 'http://localhost:3010/';
 
+
 // Endpoints
 export const API_ENDPOINTS = {
-  LOGIN: `${API_URL}v1/users/login`,
-  
-  // Users endpoints
-  USERS: {
-    REGISTER: `${API_URL}v1/users/register`,
-    GET_ALL_USERS: `${API_URL}v1/users/getAll`,
-    GET_BY_ROLE: (roleName: string) => `${API_URL}v1/users/getByRole/${roleName}`,
+  LOGIN: `${API_URL}v1/staff/login`,
 
+  BRANDS: {
+    CREATE: `${API_URL}v1/brands/create`,
+    GET_ALL: `${API_URL}v1/brands/getAll`,
+    GET_BY_ID: (brandId: string) => `${API_URL}v1/brands/getById/${brandId}`,
+    UPDATE: (brandId: string) => `${API_URL}v1/brands/update/${brandId}`,
+    DELETE: (brandId: string) => `${API_URL}v1/brands/delete/${brandId}`
+  },
+
+  STORES: {
+    CREATE: `${API_URL}v1/stores/create`,
+    GET_ALL: `${API_URL}v1/stores/getAll`,
+    GET_BY_BRAND: (brandId: string) => `${API_URL}v1/stores/brand/${brandId}`,
+    GET_BY_ID: (storeId: string) => `${API_URL}v1/stores/getById/${storeId}`,
+    UPDATE: (storeId: string) => `${API_URL}v1/stores/update/${storeId}`,
+    DELETE: (storeId: string) => `${API_URL}v1/stores/delete/${storeId}`
   },
 
   // Pages endpoints
@@ -28,26 +38,73 @@ export const API_ENDPOINTS = {
   ROLES: {
     CREATE: `${API_URL}v1/roles/create`,
     GET_ALL: `${API_URL}v1/roles/getAll`,
+    GET_BY_BRAND: (brandName: string) => `${API_URL}v1/roles/brand/${brandName}`,
     GET_BY_ID: (roleId: string) => `${API_URL}v1/roles/getById/${roleId}`,
     UPDATE: (roleId: string) => `${API_URL}v1/roles/update/${roleId}`,
     DELETE: (roleId: string) => `${API_URL}v1/roles/delete/${roleId}`
   },
 
+  // Staff endpoints
+  STAFF: {
+    REGISTER: `${API_URL}v1/staff/register`,
+    LOGIN: `${API_URL}v1/staff/login`,
+    GET_ALL_USERS: `${API_URL}v1/staff/getAll`,
+    GET_BY_BRAND: (brandName: string) => `${API_URL}v1/staff/brand/${brandName}`,
+    GET_BY_STORE: (storeName: string) => `${API_URL}v1/staff/store/${storeName}`,
+    CHANGE_PASSWORD: `${API_URL}v1/staff/changePassword`,
+  },
+
+  // Clients endpoints
+  CLIENTS: {
+    REGISTER: `${API_URL}v1/clients/create`,
+    LOGIN: `${API_URL}v1/clients/login`,
+    GET_ALL_USERS: `${API_URL}v1/clients/getAll`,
+    GET_BY_BRAND: (brandName: string) => `${API_URL}v1/clients/brand/${brandName}`,
+    GET_BY_STORE: (storeName: string) => `${API_URL}v1/clients/store/${storeName}`,
+    GET_BY_ID: (clientId: string) => `${API_URL}v1/clients/getById/${clientId}`,
+    UPDATE_BY_ID: (clientId: string) => `${API_URL}v1/clients/update/${clientId}`,
+    DELETE_BY_ID: (clientId: string) => `${API_URL}v1/clients/delete/${clientId}`,
+    CHANGE_PASSWORD: `${API_URL}v1/clients/changePassword`,
+  },
+
   // Products endpoints
-  PRODUCTS:{
+  PRODUCTS: {
     CREATE: `${API_URL}v1/products/create`,
-    GET_ALL: `${API_URL}v1/products/getAll`,
-    GET_BY_ID: (productId: string) => `${API_URL}v1/products/getById/${productId}`,
-    UPDATE: (productId: string) => `${API_URL}v1/products/update/${productId}`,
-    DELETE: (productId: string) => `${API_URL}v1/products/delete/${productId}`
+    GET_ALL: (storeId: string) => `${API_URL}v1/products/${storeId}/getAll`,
+    GET_BY_ID: (storeId: string, productId: string) => `${API_URL}v1/products/${storeId}/getById/${productId}`,
+    UPDATE: (storeId: string, productId: string) => `${API_URL}v1/products/${storeId}/update/${productId}`,
+    DELETE: (storeId: string, productId: string) => `${API_URL}v1/products/${storeId}/delete/${productId}`
   },
 
   // Sales endpoints
-  SALES:{
+  SALES: {
     CREATE: `${API_URL}v1/sales/create`,
-    GET_ALL: `${API_URL}v1/sales/getAll`,
-    GET_BY_ID: (saleId: string) => `${API_URL}v1/sales/getById/${saleId}`,
-    STATS: `${API_URL}v1/sales/stats/summary`
+    GET_ALL: (storeId: string) => `${API_URL}v1/sales/${storeId}/getAll`,
+    GET_BY_ID: (storeId: string, saleId: string) => `${API_URL}v1/sales/${storeId}/getById/${saleId}`,
+    STATS: (storeId: string) => `${API_URL}v1/sales/${storeId}/stats/summary`,
+    UPDATE_STATUS: (storeId: string, saleId: string) => `${API_URL}v1/sales/${storeId}/${saleId}/status`
+  },
+
+  // Schedules endpoints
+  SCHEDULES: {
+    CREATE: `${API_URL}v1/schedules/create`,
+    GET_ALL: (storeId: string) => `${API_URL}v1/schedules/${storeId}/getAll`,
+    GET_BY_ID: (storeId: string, scheduleId: string) => `${API_URL}v1/schedules/${storeId}/getById/${scheduleId}`,
+    GET_BY_USER_ID: (storeId: string, userId: string) => `${API_URL}v1/schedules/${storeId}/getByUserId/${userId}`,
+    UPDATE: (storeId: string, scheduleId: string) => `${API_URL}v1/schedules/${storeId}/update/${scheduleId}`,
+    DELETE: (storeId: string, scheduleId: string) => `${API_URL}v1/schedules/${storeId}/delete/${scheduleId}`
+  },
+
+  // Analytics endpoints
+  ANALYTICS: {
+    PRODUCTS_TOP_SELLING: `${API_URL}v1/analytics/products/top-selling`,
+    SUBSCRIPTIONS_MOST_ACQUIRED: `${API_URL}v1/analytics/subscriptions/most-acquired`,
+    REVENUE_BY_PERIOD: `${API_URL}v1/analytics/revenue/by-period`,
+    DASHBOARD_SUMMARY: `${API_URL}v1/analytics/dashboard/summary`,
+    SALES_BY_PAYMENT_METHOD: `${API_URL}v1/analytics/sales/by-payment-method`,
+    REVENUE_BY_CATEGORY: `${API_URL}v1/analytics/revenue/by-category`,
+    CLIENTS_TOP_BUYERS: `${API_URL}v1/analytics/clients/top-buyers`,
+    SUBSCRIPTIONS_EXPIRING_SOON: `${API_URL}v1/analytics/subscriptions/expiring-soon`
   }
 
 };

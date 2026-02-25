@@ -5,10 +5,21 @@ const saleSchema = new mongoose.Schema({
     type: String,
     default: () => new mongoose.Types.ObjectId().toString()
   },
+  storeId: {
+    type: String,
+    ref: 'Store',
+    required: true
+  },
+  userId: {
+    type: String,
+    ref: 'Staff',
+    required: true
+  },
   clientId: {
     type: String,
-    ref: 'User',
-    required: true
+    ref: 'Client',
+    required: false,
+    default: null
   },
   receiptNumber: {
     type: String,
@@ -55,17 +66,16 @@ const saleSchema = new mongoose.Schema({
     amountPaid: Number,
     change: Number
   },
-  sellerId: {
-    type: String,
-    ref: 'User',
-    required: true
-  },
   status: {
     type: String,
     enum: ['completed', 'cancelled', 'refunded'],
     default: 'completed'
+  },
+  cancellationReason: {
+    type: String,
+    default: null
   }
-}, { timestamps: true });
+}, { timestamps: true, minimize: false });
 
 // Índice para búsquedas rápidas por fecha (Estadísticas)
 saleSchema.index({ createdAt: -1 });

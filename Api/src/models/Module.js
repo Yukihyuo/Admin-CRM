@@ -5,15 +5,15 @@ const moduleSchema = new mongoose.Schema({
     type: String,
     default: () => new mongoose.Types.ObjectId().toString()
   },
-  pageId:{
+  pageId: {
     type: String,
     required: true,
     ref: 'Page'
   },
-  type:{
+  type: {
     type: String,
     required: true,
-    enum: ['read', 'write', 'delete', 'update']
+    enum: ['create', 'read', 'update', 'delete']
   }
 });
 

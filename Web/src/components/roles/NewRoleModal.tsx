@@ -19,6 +19,9 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { API_ENDPOINTS } from "@/config/api"
 
+
+import { useAuthStore } from '@/store/authStore'
+
 // Schema de validación con Zod
 const roleSchema = z.object({
   name: z.string()
@@ -54,6 +57,8 @@ export function NewRoleModal({ onSuccess, trigger }: NewRoleModalProps) {
   const [isLoadingPages, setIsLoadingPages] = useState(false)
   const [pages, setPages] = useState<Page[]>([])
   const [selectedModules, setSelectedModules] = useState<string[]>([])
+
+  const brandId = useAuthStore((state) => state.getBrandId())
 
   const {
     register,
@@ -147,6 +152,7 @@ export function NewRoleModal({ onSuccess, trigger }: NewRoleModalProps) {
     setIsLoading(true)
     try {
       const response = await axios.post(API_ENDPOINTS.ROLES.CREATE, {
+        brandId,
         name: data.name,
         modules: data.modules,
       })

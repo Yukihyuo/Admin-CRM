@@ -5,7 +5,12 @@ const scheduleSchema = new mongoose.Schema({
     type: String,
     default: () => new mongoose.Types.ObjectId().toString()
   },
-  userId: { type: String, ref: 'User', required: true },
+  storeId: {
+    type: String,
+    ref: 'Store',
+    required: true
+  },
+  userId: { type: String, ref: 'Staff', required: true },
   validFrom: { type: Date, required: true },
   validUntil: { type: Date, default: null },
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import axios from "axios"
 import { toast } from "react-toastify"
 import { Plus, Trash2, ShoppingCart } from "lucide-react"
@@ -79,29 +79,30 @@ export function NewSaleModal({ onSuccess, trigger }: NewSaleModalProps) {
   const [tax, setTax] = useState<string>("0")
 
   const { user } = useAuthStore()
+  // const brandActive = useAuthStore((state) => state.access?.brandId ?? null)
+  const activeStoreId = useAuthStore((state) => state.getActiveStoreId())
+  const brandId = useAuthStore((state) => state.getBrandId())
 
   // Cargar clientes y productos al abrir el modal
-  useEffect(() => {
-    if (open) {
-      fetchClients()
-      fetchProducts()
-      resetForm()
-    }
-  }, [open])
-
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.USERS.GET_ALL_USERS)
-      setClients(response.data.users || [])
+      const response = await axios.get(API_ENDPOINTS.CLIENTS.GET_BY_BRAND(brandId || ""))
+      console.log(response)
+      setClients(response.data.clients || [])
     } catch (error) {
       console.error("Error al cargar clientes:", error)
       toast.error("Error al cargar los clientes")
     }
-  }
+  }, [brandId])
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
+    if (!activeStoreId) {
+      setProducts([])
+      return
+    }
+
     try {
-      const response = await axios.get(API_ENDPOINTS.PRODUCTS.GET_ALL)
+      const response = await axios.get(API_ENDPOINTS.PRODUCTS.GET_ALL(activeStoreId))
       // Filtrar solo productos disponibles con stock
       const availableProducts = (response.data.products || []).filter(
         (p: Product) => p.status === "available" && p.stock > 0
@@ -111,7 +112,15 @@ export function NewSaleModal({ onSuccess, trigger }: NewSaleModalProps) {
       console.error("Error al cargar productos:", error)
       toast.error("Error al cargar los productos")
     }
-  }
+  }, [activeStoreId])
+
+  useEffect(() => {
+    if (open) {
+      fetchClients()
+      fetchProducts()
+      resetForm()
+    }
+  }, [open, fetchClients, fetchProducts])
 
   const resetForm = () => {
     setSelectedClientId("")
@@ -229,6 +238,11 @@ export function NewSaleModal({ onSuccess, trigger }: NewSaleModalProps) {
       return
     }
 
+    if (!activeStoreId) {
+      toast.error("No se pudo identificar la marca activa")
+      return
+    }
+
     if (paymentMethod === "cash") {
       const paid = parseFloat(amountPaid) || 0
       if (paid < total) {
@@ -241,8 +255,9 @@ export function NewSaleModal({ onSuccess, trigger }: NewSaleModalProps) {
 
     try {
       const saleData = {
+        storeId: activeStoreId,
         clientId: selectedClientId,
-        sellerId: user.id,
+        userId: user.id,
         items: saleItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,

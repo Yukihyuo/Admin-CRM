@@ -17,6 +17,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { API_ENDPOINTS } from "../../config/api";
+import { useAuthStore } from "@/store/authStore";
 
 // Zod schema para validación
 const productSchema = z.object({
@@ -59,7 +60,17 @@ export function NewProduct({ onProductCreated }: NewProductProps) {
   const onSubmit = async (data: ProductFormData) => {
     setIsLoading(true);
     try {
-      const response = await axios.post(API_ENDPOINTS.PRODUCTS.CREATE, data);
+      const response = await axios.post(API_ENDPOINTS.PRODUCTS.CREATE,
+        {
+          storeId: useAuthStore.getState().getActiveStoreId(),
+          ...data
+        },
+        {
+          headers: {
+            Authorization: useAuthStore.getState().token,
+          },
+        }
+      );
 
       if (response.status === 201) {
         toast.success("Producto creado exitosamente");
@@ -69,7 +80,7 @@ export function NewProduct({ onProductCreated }: NewProductProps) {
           onProductCreated();
         }
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error al crear producto:", error);
       toast.error(

@@ -1,10 +1,10 @@
 import { PageHeader } from '@/components/global/PageHeader'
 import { Button } from '@/components/ui/button'
-import { NewUserModal } from '@/components/users/NewUserModal'
 import { API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
-import { User, MoreHorizontal } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import { User, MoreHorizontal, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'react-toastify'
 import {
   useReactTable,
   getCoreRowModel,
@@ -17,11 +17,19 @@ import {
   type ColumnFiltersState,
 } from '@tanstack/react-table'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 
-interface Role {
-  id: string
-  name: string
-}
+import { useAuthStore } from "@/store/authStore"
+import NewClientModal from '@/components/Clients/NewClientModal'
+import DetailsClientModal from '@/components/Clients/DetailsClientModal'
+
+
 
 interface Profile {
   names: string
@@ -35,9 +43,7 @@ interface UserData {
   email: string
   profile: Profile
   status: boolean
-  roles: Role[]
   createdAt?: string
-  updatedAt?: string
 }
 
 export default function Page() {
@@ -47,22 +53,37 @@ export default function Page() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
-  const asyncLoad = async () => {
+  const brandId = useAuthStore((state) => state.getBrandId())
+
+  const asyncLoad = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await axios.get(API_ENDPOINTS.USERS.GET_ALL_USERS)
-      console.log("Usuarios cargados:", response.data)
-      setUsers(response.data.users || [])
+      const response = await axios.get(API_ENDPOINTS.CLIENTS.GET_BY_BRAND(brandId || ""))
+      console.log("Clientes cargados:", response.data)
+      setUsers(response.data.clients || [])
     } catch (error) {
-      console.error("Error al cargar usuarios:", error)
+      console.error("Error al cargar clientes:", error)
     } finally {
       setLoading(false)
+    }
+  }, [brandId])
+
+  const handleDelete = async (clientId: string) => {
+    if (!confirm("¿Estás seguro de eliminar este cliente?")) return
+
+    try {
+      await axios.delete(API_ENDPOINTS.CLIENTS.DELETE_BY_ID(clientId))
+      toast.error("Cliente eliminado exitosamente")
+      await asyncLoad()
+    } catch (error) {
+      console.error("Error al eliminar cliente:", error)
+      toast.error("Error al eliminar cliente")
     }
   }
 
   useEffect(() => {
     asyncLoad()
-  }, [])
+  }, [asyncLoad])
 
   const columns: ColumnDef<UserData>[] = [
     {
@@ -95,30 +116,14 @@ export default function Page() {
       ),
     },
     {
-      id: "roles",
-      header: "Roles",
-      cell: ({ row }) => (
-        <div className="flex gap-1 flex-wrap">
-          {row.original.roles.map((role) => (
-            <span
-              key={role.id}
-              className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-            >
-              {role.name}
-            </span>
-          ))}
-        </div>
-      ),
-    },
-    {
       accessorKey: "status",
       header: "Estado",
       cell: ({ row }) => (
         <div className="flex items-center">
           <span
             className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${row.getValue("status")
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
               }`}
           >
             {row.getValue("status") ? "Activo" : "Inactivo"}
@@ -129,13 +134,28 @@ export default function Page() {
     {
       id: "actions",
       header: "Acciones",
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       cell: ({ row }) => {
-        // TODO: Agregar acciones específicas aquí
         return (
-          <Button variant="ghost" size="sm">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DetailsClientModal clientId={row.original._id} onClientUpdated={asyncLoad} />
+              <DropdownMenuSeparator />
+              <div
+                className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 text-red-600 hover:bg-red-50"
+                onClick={() => handleDelete(row.original._id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       },
     },
@@ -163,19 +183,19 @@ export default function Page() {
       <PageHeader
         breadcrumbs={[
           { label: "Admin", href: "/admin" },
-          { label: "Gestión de Usuarios" }
+          { label: "Gestión de Clientes" }
         ]}
-        title="Usuarios"
-        description={`Administra los usuarios del sistema. Total: ${users.length}`}
+        title="Clientes"
+        description={`Administra los clientes del sistema. Total: ${users.length}`}
         icon={<User className="h-5 w-5" />}
       />
 
       <div className="space-y-4">
         {/* Barra de búsqueda */}
         <div className="flex items-center justify-between gap-2">
-          <NewUserModal onSuccess={asyncLoad} />
+          <NewClientModal onSuccess={asyncLoad} />
           <Input
-            placeholder="Buscar usuarios..."
+            placeholder="Buscar clientes..."
             value={globalFilter ?? ""}
             onChange={(event) => setGlobalFilter(String(event.target.value))}
             className="max-w-sm"

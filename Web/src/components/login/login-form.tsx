@@ -11,8 +11,21 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { useAuthStore } from "@/store/authStore"
+import { useAuthStore, type Access, type User } from "@/store/authStore"
+import { useModulesStore } from "@/store/modulesStore"
 import { API_ENDPOINTS } from "@/config/api"
+
+interface LoginResponse {
+  message: string
+  token: string
+  user: User
+  access: Access
+  modules?: Array<{
+    id: string
+    page: string
+    type: string
+  }>
+}
 
 export function LoginForm({
   className,
@@ -23,27 +36,33 @@ export function LoginForm({
   const [isLoading, setIsLoading] = useState(false)
   
   const setAuth = useAuthStore((state) => state.setAuth)
+  const setModules = useModulesStore((state) => state.setModules)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
-    console.log(API_ENDPOINTS.LOGIN)
+
     try {
-      const response = await axios.post(API_ENDPOINTS.LOGIN, {
+      const response = await axios.post<LoginResponse>(API_ENDPOINTS.LOGIN, {
         username,
         password,
       })
 
-      if (response.data.token && response.data.user) {
-        // Guardar en el store de Zustand
-        setAuth(response.data.token, response.data.user)
-        
-        toast.success(response.data.message || "Inicio de sesión exitoso")
-        
-        // La app detectará automáticamente el cambio de isAuthenticated
+      const { token, user, access, modules, message } = response.data
+
+      if (token && user && access) {
+        setAuth(token, user, access)
+
+        if (modules) {
+          setModules(modules)
+        }
+
+        toast.success(message || "Inicio de sesión exitoso")
+      } else {
+        toast.error("Respuesta de login incompleta")
       }
     } catch (error) {
-      if (axios.isAxiosError(error)) {
+      if (axios.isAxiosError<{ message?: string }>(error)) {
         const message = error.response?.data?.message || "Error al iniciar sesión"
         toast.error(message)
       } else {

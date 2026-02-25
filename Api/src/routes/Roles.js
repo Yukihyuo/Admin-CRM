@@ -1,33 +1,49 @@
 import express from 'express';
 import Role from '../models/Role.js';
+import Module from '../models/Module.js';
 
 const router = express.Router();
 
 // Create - Crear un nuevo rol
 router.post('/create', async (req, res) => {
   try {
-    const { name, modules } = req.body;
+    const { brandId, name, permissions } = req.body;
 
     // Validar campos requeridos
-    if (!name) {
+    if (!brandId || !name) {
       return res.status(400).json({ 
-        message: 'El nombre del rol es requerido' 
+        message: 'El ID de la marca y el nombre del rol son requeridos' 
       });
     }
 
-    // Verificar si el rol ya existe
-    const existingRole = await Role.findOne({ name });
+    // Verificar si el rol ya existe en esa marca
+    const existingRole = await Role.findOne({ brandId, name });
     
     if (existingRole) {
       return res.status(400).json({ 
-        message: 'El rol ya existe' 
+        message: 'Ya existe un rol con ese nombre en esta marca' 
       });
+    }
+
+    // Validar que los permisos existan (si se proporcionan)
+    if (permissions && permissions.length > 0) {
+      const moduleIds = await Module.find({ _id: { $in: permissions } }).select('_id');
+      const validModuleIds = moduleIds.map(m => m._id);
+      const invalidPermissions = permissions.filter(p => !validModuleIds.includes(p));
+      
+      if (invalidPermissions.length > 0) {
+        return res.status(400).json({ 
+          message: 'Algunos permisos no existen',
+          invalidPermissions: invalidPermissions
+        });
+      }
     }
 
     // Crear el nuevo rol
     const newRole = new Role({
+      brandId,
       name,
-      modules: modules || []
+      permissions: permissions || []
     });
 
     await newRole.save();
@@ -46,10 +62,13 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// GetAll - Obtener todos los roles
+// GetAll - Obtener todos los roles (opcionalmente filtrados por marca)
 router.get('/getAll', async (req, res) => {
   try {
-    const roles = await Role.find();
+    const { brandId } = req.query;
+    
+    const filter = brandId ? { brandId } : {};
+    const roles = await Role.find(filter).populate('permissions');
 
     res.status(200).json({
       message: 'Roles obtenidos exitosamente',
@@ -66,12 +85,34 @@ router.get('/getAll', async (req, res) => {
   }
 });
 
+// GetByBrandId - Obtener roles por ID de marca
+router.get('/brand/:brandId', async (req, res) => {
+  try {
+    const { brandId } = req.params;
+
+    const roles = await Role.find({ brandId }).populate('permissions');
+
+    res.status(200).json({
+      message: 'Roles obtenidos exitosamente',
+      count: roles.length,
+      roles: roles
+    });
+
+  } catch (error) {
+    console.error('Error en getByBrandId:', error);
+    res.status(500).json({ 
+      message: 'Error al obtener roles', 
+      error: error.message 
+    });
+  }
+});
+
 // GetById - Obtener un rol por ID
 router.get('/getById/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const role = await Role.findById(id);
+    const role = await Role.findById(id).populate('permissions');
     
     if (!role) {
       return res.status(404).json({ 
@@ -97,7 +138,7 @@ router.get('/getById/:id', async (req, res) => {
 router.put('/update/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, modules } = req.body;
+    const { name, permissions } = req.body;
 
     // Buscar el rol
     const role = await Role.findById(id);
@@ -108,21 +149,34 @@ router.put('/update/:id', async (req, res) => {
       });
     }
 
-    // Si se quiere cambiar el nombre, verificar que no exista otro rol con ese nombre
+    // Si se quiere cambiar el nombre, verificar que no exista otro rol con ese nombre en la misma marca
     if (name && name !== role.name) {
-      const existingRole = await Role.findOne({ name });
+      const existingRole = await Role.findOne({ brandId: role.brandId, name });
       
       if (existingRole) {
         return res.status(400).json({ 
-          message: 'Ya existe un rol con ese nombre' 
+          message: 'Ya existe un rol con ese nombre en esta marca' 
         });
       }
       role.name = name;
     }
 
-    // Actualizar módulos si se proporcionan
-    if (modules !== undefined) {
-      role.modules = modules;
+    // Actualizar permisos si se proporcionan
+    if (permissions !== undefined) {
+      // Validar que los permisos existan
+      if (permissions.length > 0) {
+        const moduleIds = await Module.find({ _id: { $in: permissions } }).select('_id');
+        const validModuleIds = moduleIds.map(m => m._id);
+        const invalidPermissions = permissions.filter(p => !validModuleIds.includes(p));
+        
+        if (invalidPermissions.length > 0) {
+          return res.status(400).json({ 
+            message: 'Algunos permisos no existen',
+            invalidPermissions: invalidPermissions
+          });
+        }
+      }
+      role.permissions = permissions;
     }
 
     await role.save();

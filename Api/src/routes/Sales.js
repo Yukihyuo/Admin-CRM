@@ -2,9 +2,16 @@ import express from 'express';
 
 import Product from '../models/Product.js';
 import Sale from '../models/Sale.js';
-import User from '../models/User.js';
+import Staff from '../models/Staff.js';
+import Store from '../models/Store.js';
+import Client from '../models/Client.js';
 
 const router = express.Router();
+
+const validateStoreExists = async (storeId) => {
+  if (!storeId) return null;
+  return Store.findById(storeId);
+};
 
 // Generar número de recibo único
 const generateReceiptNumber = async () => {
@@ -17,48 +24,71 @@ const generateReceiptNumber = async () => {
 // POST - Crear una nueva venta
 router.post('/create', async (req, res) => {
   try {
-    const { clientId, items, payment, sellerId, totals } = req.body;
+    const { storeId, clientId, items, payment, userId, totals } = req.body;
 
     // Validar que existan los datos requeridos
-    if (!clientId || !items || !items.length || !payment || !sellerId) {
-      return res.status(400).json({ 
-        message: 'Faltan datos requeridos: clientId, items, payment, sellerId' 
+    if (!storeId || !items || !items.length || !payment || !userId) {
+      return res.status(400).json({
+        message: 'Faltan datos requeridos: storeId, items, payment, userId'
       });
     }
 
-    // Validar que el cliente y vendedor existan
-    const [client, seller] = await Promise.all([
-      User.findById(clientId),
-      User.findById(sellerId)
-    ]);
-
-    if (!client) {
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+    const store = await validateStoreExists(storeId);
+    if (!store) {
+      return res.status(404).json({ message: 'Tienda no encontrada' });
     }
+
+    // Validar que el usuario vendedor exista
+    const seller = await Staff.findById(userId);
+
     if (!seller) {
       return res.status(404).json({ message: 'Vendedor no encontrado' });
+    }
+
+    if (clientId) {
+      const client = await Client.findById(clientId);
+
+      if (!client) {
+        return res.status(404).json({ message: 'Cliente no encontrado' });
+      }
+
+      if (client.brandId !== store.brandId) {
+        return res.status(400).json({ message: 'El cliente no pertenece a la marca de la tienda activa' });
+      }
     }
 
     // Validar productos y stock
     const productsData = [];
     for (const item of items) {
+      if (!item.productId || !item.quantity || item.quantity < 1) {
+        return res.status(400).json({
+          message: 'Cada item debe incluir productId y quantity mayor a 0'
+        });
+      }
+
       const product = await Product.findById(item.productId);
-      
+
       if (!product) {
-        return res.status(404).json({ 
-          message: `Producto ${item.productId} no encontrado` 
+        return res.status(404).json({
+          message: `Producto ${item.productId} no encontrado`
         });
       }
 
       if (product.status !== 'available') {
-        return res.status(400).json({ 
-          message: `Producto ${product.name} no está disponible` 
+        return res.status(400).json({
+          message: `Producto ${product.name} no está disponible`
         });
       }
 
       if (product.stock < item.quantity) {
-        return res.status(400).json({ 
-          message: `Stock insuficiente para ${product.name}. Disponible: ${product.stock}, Solicitado: ${item.quantity}` 
+        return res.status(400).json({
+          message: `Stock insuficiente para ${product.name}. Disponible: ${product.stock}, Solicitado: ${item.quantity}`
+        });
+      }
+
+      if (product.storeId !== storeId) {
+        return res.status(400).json({
+          message: `El producto ${product.name} no pertenece a la tienda activa`
         });
       }
 
@@ -86,8 +116,8 @@ router.post('/create', async (req, res) => {
     // Validar pago para método efectivo
     if (payment.method === 'cash') {
       if (!payment.amountPaid || payment.amountPaid < total) {
-        return res.status(400).json({ 
-          message: `Monto insuficiente. Total: $${total}, Pagado: $${payment.amountPaid || 0}` 
+        return res.status(400).json({
+          message: `Monto insuficiente. Total: $${total}, Pagado: $${payment.amountPaid || 0}`
         });
       }
       payment.change = payment.amountPaid - total;
@@ -98,7 +128,9 @@ router.post('/create', async (req, res) => {
 
     // Crear la venta
     const sale = new Sale({
-      clientId,
+      storeId: storeId,
+      userId,
+      clientId: clientId || null,
       receiptNumber,
       items: saleItems,
       totals: {
@@ -108,7 +140,6 @@ router.post('/create', async (req, res) => {
         total
       },
       payment,
-      sellerId,
       status: 'completed'
     });
 
@@ -122,8 +153,8 @@ router.post('/create', async (req, res) => {
 
     // Poblar la información del cliente y vendedor para la respuesta
     await sale.populate([
-      { path: 'clientId', select: 'firstName lastName email' },
-      { path: 'sellerId', select: 'firstName lastName' },
+      { path: 'clientId', select: 'profile.names profile.lastNames email' },
+      { path: 'userId', select: 'profile.names profile.lastNames email' },
       { path: 'items.productId', select: 'name category' }
     ]);
 
@@ -134,66 +165,52 @@ router.post('/create', async (req, res) => {
 
   } catch (error) {
     console.error('Error al crear venta:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error al crear la venta',
-      error: error.message 
+      error: error.message
     });
   }
 });
 
 // GET - Obtener todas las ventas
-router.get('/getAll', async (req, res) => {
+router.get('/:storeId/getAll', async (req, res) => {
   try {
-    const { status, sellerId, startDate, endDate, page = 1, limit = 50 } = req.query;
+    const { storeId } = req.params;
 
-    // Construir filtros
-    const filters = {};
-    if (status) filters.status = status;
-    if (sellerId) filters.sellerId = sellerId;
-    
-    if (startDate || endDate) {
-      filters.createdAt = {};
-      if (startDate) filters.createdAt.$gte = new Date(startDate);
-      if (endDate) filters.createdAt.$lte = new Date(endDate);
+    const store = await validateStoreExists(storeId);
+    if (!store) {
+      return res.status(404).json({ message: 'Tienda no encontrada' });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sales = await Sale.find({ storeId })
+      .populate('clientId', 'profile')
+      .populate('userId', 'profile')
+      .sort({ createdAt: -1 });
 
-    const [sales, total] = await Promise.all([
-      Sale.find(filters)
-        .populate('clientId', 'firstName lastName email')
-        .populate('sellerId', 'firstName lastName')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
-      Sale.countDocuments(filters)
-    ]);
-
-    res.json({
-      sales,
-      pagination: {
-        total,
-        page: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit)),
-        limit: parseInt(limit)
-      }
-    });
+    res.status(200).json({ sales });
 
   } catch (error) {
     console.error('Error al obtener ventas:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error al obtener las ventas',
-      error: error.message 
+      error: error.message
     });
   }
 });
 
 // GET - Obtener una venta específica
-router.get('/getById/:id', async (req, res) => {
+router.get('/:storeId/getById/:id', async (req, res) => {
   try {
-    const sale = await Sale.findById(req.params.id)
-      .populate('clientId', 'firstName lastName email phone')
-      .populate('sellerId', 'firstName lastName')
+    const { storeId, id } = req.params;
+
+    const store = await validateStoreExists(storeId);
+    if (!store) {
+      return res.status(404).json({ message: 'Tienda no encontrada' });
+    }
+
+    const sale = await Sale.findOne({ _id: id, storeId })
+      .populate('clientId', 'profile.names profile.lastNames email')
+      .populate('userId', 'profile.names profile.lastNames email')
       .populate('items.productId', 'name category');
 
     if (!sale) {
@@ -204,27 +221,33 @@ router.get('/getById/:id', async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener venta:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error al obtener la venta',
-      error: error.message 
+      error: error.message
     });
   }
 });
 
 // GET - Estadísticas de ventas
-router.get('/stats/summary', async (req, res) => {
+router.get('/:storeId/stats/summary', async (req, res) => {
   try {
+    const { storeId } = req.params;
     const { startDate, endDate, sellerId } = req.query;
 
-    const filters = { status: 'completed' };
-    
+    const store = await validateStoreExists(storeId);
+    if (!store) {
+      return res.status(404).json({ message: 'Tienda no encontrada' });
+    }
+
+    const filters = { status: 'completed', storeId };
+
     if (startDate || endDate) {
       filters.createdAt = {};
       if (startDate) filters.createdAt.$gte = new Date(startDate);
       if (endDate) filters.createdAt.$lte = new Date(endDate);
     }
 
-    if (sellerId) filters.sellerId = sellerId;
+    if (sellerId) filters.userId = sellerId;
 
     const stats = await Sale.aggregate([
       { $match: filters },
@@ -282,33 +305,39 @@ router.get('/stats/summary', async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error al obtener estadísticas',
-      error: error.message 
+      error: error.message
     });
   }
 });
 
 // PATCH - Cancelar/Reembolsar una venta
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:storeId/:id/status', async (req, res) => {
   try {
+    const { storeId, id } = req.params;
     const { status, reason } = req.body;
 
+    const store = await validateStoreExists(storeId);
+    if (!store) {
+      return res.status(404).json({ message: 'Tienda no encontrada' });
+    }
+
     if (!['cancelled', 'refunded'].includes(status)) {
-      return res.status(400).json({ 
-        message: 'Estado inválido. Debe ser "cancelled" o "refunded"' 
+      return res.status(400).json({
+        message: 'Estado inválido. Debe ser "cancelled" o "refunded"'
       });
     }
 
-    const sale = await Sale.findById(req.params.id);
+    const sale = await Sale.findOne({ _id: id, storeId });
 
     if (!sale) {
       return res.status(404).json({ message: 'Venta no encontrada' });
     }
 
     if (sale.status !== 'completed') {
-      return res.status(400).json({ 
-        message: 'Solo se pueden cancelar/reembolsar ventas completadas' 
+      return res.status(400).json({
+        message: 'Solo se pueden cancelar/reembolsar ventas completadas'
       });
     }
 
@@ -316,7 +345,7 @@ router.patch('/:id/status', async (req, res) => {
     if (status === 'refunded') {
       for (const item of sale.items) {
         const product = await Product.findById(item.productId);
-        if (product) {
+        if (product && product.storeId === storeId) {
           product.stock += item.quantity;
           await product.save();
         }
@@ -336,9 +365,9 @@ router.patch('/:id/status', async (req, res) => {
 
   } catch (error) {
     console.error('Error al actualizar estado de venta:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error al actualizar la venta',
-      error: error.message 
+      error: error.message
     });
   }
 });

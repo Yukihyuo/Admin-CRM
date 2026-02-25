@@ -15,10 +15,6 @@ const pageSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  modules:{
-    type: [String],
-  }
-
 });
 
 const Page = mongoose.model('Page', pageSchema);

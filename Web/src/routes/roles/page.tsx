@@ -6,8 +6,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
 import { Shield, Users } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
+
+
+import { useAuthStore } from '@/store/authStore'
 
 interface Module {
   _id: string
@@ -26,7 +29,7 @@ interface Page {
 interface Role {
   _id: string
   name: string
-  modules: string[]
+  permissions: string[]  // El backend usa 'permissions', no 'modules'
 }
 
 export default function Page() {
@@ -38,17 +41,19 @@ export default function Page() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const loadRoles = async () => {
+  const brandId = useAuthStore((state) => state.getBrandId())
+
+  const loadRoles = useCallback(async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.ROLES.GET_ALL)
+      const response = await axios.get(API_ENDPOINTS.ROLES.GET_BY_BRAND(brandId || ""))
       setRoles(response.data.roles || [])
     } catch (error) {
       console.error("Error al cargar roles:", error)
       toast.error("Error al cargar roles")
     }
-  }
+  }, [brandId])
 
-  const loadPages = async () => {
+  const loadPages = useCallback(async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.PAGES.GET_ALL)
       setPages(response.data.pages || [])
@@ -56,7 +61,7 @@ export default function Page() {
       console.error("Error al cargar páginas:", error)
       toast.error("Error al cargar páginas")
     }
-  }
+  }, [])
 
   useEffect(() => {
     const loadData = async () => {
@@ -65,23 +70,27 @@ export default function Page() {
       setLoading(false)
     }
     loadData()
-  }, [])
+  }, [loadRoles, loadPages])
 
   const handleRoleSelect = (role: Role) => {
     setSelectedRole(role)
     setEditedName(role.name)
-    setSelectedModules(role.modules)
+    // El backend retorna 'permissions', lo asignamos a selectedModules
+    setSelectedModules(role.permissions || [])
   }
 
   const handleModuleToggle = (moduleId: string) => {
-    setSelectedModules((prev) =>
-      prev.includes(moduleId)
+    setSelectedModules((prev) => {
+      if (!prev) return [moduleId]
+      return prev.includes(moduleId)
         ? prev.filter((id) => id !== moduleId)
         : [...prev, moduleId]
-    )
+    })
   }
 
   const handlePageToggle = (page: Page) => {
+    if (!page.moduleDetails || page.moduleDetails.length === 0) return
+    
     const pageModuleIds = page.moduleDetails.map(m => m._id)
     const allSelected = pageModuleIds.every(id => selectedModules.includes(id))
     
@@ -93,7 +102,7 @@ export default function Page() {
   }
 
   const isPageFullySelected = (page: Page) => {
-    if (page.moduleDetails.length === 0) return false
+    if (!selectedModules || !page.moduleDetails || page.moduleDetails.length === 0) return false
     return page.moduleDetails.every(m => selectedModules.includes(m._id))
   }
 
@@ -110,20 +119,27 @@ export default function Page() {
   const handleSave = async () => {
     if (!selectedRole) return
 
+    if (!editedName.trim()) {
+      toast.error("El nombre del rol es requerido")
+      return
+    }
+
     setSaving(true)
     try {
+      // El backend espera 'permissions', no 'modules'
       await axios.put(API_ENDPOINTS.ROLES.UPDATE(selectedRole._id), {
         name: editedName,
-        modules: selectedModules
+        permissions: selectedModules
       })
       toast.success("Rol actualizado exitosamente")
       await loadRoles()
       
       // Actualizar el rol seleccionado con los nuevos datos
-      const updatedRole = roles.find(r => r._id === selectedRole._id)
-      if (updatedRole) {
-        setSelectedRole({ ...updatedRole, name: editedName, modules: selectedModules })
-      }
+      setSelectedRole({ 
+        ...selectedRole, 
+        name: editedName, 
+        permissions: selectedModules 
+      })
     } catch (error) {
       console.error("Error al actualizar rol:", error)
       toast.error("Error al actualizar rol")
@@ -141,6 +157,7 @@ export default function Page() {
       await loadRoles()
       if (selectedRole?._id === roleId) {
         setSelectedRole(null)
+        setSelectedModules([])
       }
     } catch (error) {
       console.error("Error al eliminar rol:", error)
@@ -171,6 +188,10 @@ export default function Page() {
           {loading ? (
             <div className="text-center py-4 text-muted-foreground text-sm">
               Cargando...
+            </div>
+          ) : roles.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              No hay roles disponibles
             </div>
           ) : (
             <div className="space-y-2">
@@ -214,63 +235,61 @@ export default function Page() {
                 </Button>
               </div>
 
-              {/* Sub Roles */}
-              <div>
-                <h3 className="font-semibold mb-2">Sub Roles</h3>
-                <p className="text-sm text-muted-foreground">
-                  No hay sub roles configurados
-                </p>
-              </div>
-
               {/* Módulos por Página */}
               <div>
                 <h3 className="font-semibold mb-4">Módulos</h3>
-                <div className="space-y-4">
-                  {pages.map((page) => (
-                    <div key={page._id} className="bg-muted/30 rounded-lg p-4">
-                      {/* Nombre de la página con checkbox para seleccionar todos */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <Checkbox
-                          id={`page-${page._id}`}
-                          checked={isPageFullySelected(page)}
-                          onCheckedChange={() => handlePageToggle(page)}
-                          disabled={page.moduleDetails.length === 0}
-                        />
-                        <label
-                          htmlFor={`page-${page._id}`}
-                          className="text-sm font-medium text-muted-foreground cursor-pointer"
-                        >
-                          {page.name}
-                        </label>
-                      </div>
-
-                      {/* Módulos individuales */}
-                      {page.moduleDetails.length > 0 ? (
-                        <div className="ml-6 space-y-2">
-                          {page.moduleDetails.map((module) => (
-                            <div key={module._id} className="flex items-center gap-2">
-                              <Checkbox
-                                id={module._id}
-                                checked={selectedModules.includes(module._id)}
-                                onCheckedChange={() => handleModuleToggle(module._id)}
-                              />
-                              <label
-                                htmlFor={module._id}
-                                className="text-sm cursor-pointer"
-                              >
-                                {getModuleTypeLabel(module.type)} {page.name}
-                              </label>
-                            </div>
-                          ))}
+                {pages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No hay páginas disponibles
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pages.map((page) => (
+                      <div key={page._id} className="bg-muted/30 rounded-lg p-4">
+                        {/* Nombre de la página con checkbox para seleccionar todos */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <Checkbox
+                            id={`page-${page._id}`}
+                            checked={isPageFullySelected(page)}
+                            onCheckedChange={() => handlePageToggle(page)}
+                            disabled={!page.moduleDetails || page.moduleDetails.length === 0}
+                          />
+                          <label
+                            htmlFor={`page-${page._id}`}
+                            className="text-sm font-medium text-muted-foreground cursor-pointer"
+                          >
+                            {page.name}
+                          </label>
                         </div>
-                      ) : (
-                        <p className="ml-6 text-xs text-muted-foreground italic">
-                          Sin módulos disponibles
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+
+                        {/* Módulos individuales */}
+                        {page.moduleDetails && page.moduleDetails.length > 0 ? (
+                          <div className="ml-6 space-y-2">
+                            {page.moduleDetails.map((module) => (
+                              <div key={module._id} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={module._id}
+                                  checked={selectedModules.includes(module._id)}
+                                  onCheckedChange={() => handleModuleToggle(module._id)}
+                                />
+                                <label
+                                  htmlFor={module._id}
+                                  className="text-sm cursor-pointer"
+                                >
+                                  {getModuleTypeLabel(module.type)} {page.name}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="ml-6 text-xs text-muted-foreground italic">
+                            Sin módulos disponibles
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Botón de eliminar */}

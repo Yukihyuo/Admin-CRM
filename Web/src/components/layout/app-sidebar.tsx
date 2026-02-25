@@ -7,6 +7,7 @@ import {
   SquareTerminal,
   User,
   CalendarDays,
+  Users,
 
 
 } from "lucide-react"
@@ -25,7 +26,7 @@ import {
 import { useAuthStore } from "@/store/authStore"
 
 // This is sample data.
-const data = {  
+const data = {
   navMain: [
     {
       title: "Administración",
@@ -42,17 +43,25 @@ const data = {
           url: "/roles",
         },
         {
-          title: "Paginas",
+          title: "Páginas",
           url: "/pages",
+        },
+        {
+          title: "Tiendas",
+          url: "/stores",
         },
       ],
     },
   ],
   projects: [
     {
-      name: "Usuarios",
-      url: "/users",
+      name: "Staff",
+      url: "/staff",
       icon: User,
+    }, {
+      name: "Clientes",
+      url: "/clients",
+      icon: Users,
     },
     {
       name: "Inventario",
@@ -73,13 +82,13 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const {getProfile} = useAuthStore()
+  const { getProfile } = useAuthStore()
   const userData = getProfile()
-  
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher  />
+        <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />

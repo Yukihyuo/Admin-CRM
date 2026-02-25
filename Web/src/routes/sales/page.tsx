@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
-import { Eye } from 'lucide-react'
-import {PageHeader} from '@/components/global/PageHeader'
+import { Eye, MoreVertical } from 'lucide-react'
+import { PageHeader } from '@/components/global/PageHeader'
 import { NewSaleModal } from '@/components/sales/NewSaleModal'
+import { DetailsSaleModal } from '@/components/sales/DetailsSaleModal'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -13,7 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { API_ENDPOINTS } from '@/config/api'
+import { useAuthStore } from '@/store/authStore'
 
 interface Sale {
   _id: string
@@ -26,7 +34,7 @@ interface Sale {
       lastNames: string
     }
   }
-  sellerId: {
+  userId: {
     firstName?: string
     lastName?: string
     profile?: {
@@ -47,15 +55,21 @@ interface Sale {
 export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null)
+  const activeStoreId = useAuthStore((state) => state.getActiveStoreId())
+  const token = useAuthStore((state) => state.token)
 
-  useEffect(() => {
-    fetchSales()
-  }, [])
-
-  const fetchSales = async () => {
+  const asyncLoad = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await axios.get(API_ENDPOINTS.SALES.GET_ALL)
+      const response = await axios.get(API_ENDPOINTS.SALES.GET_ALL(activeStoreId || ""), {
+        headers: {
+          Authorization: token,
+        },
+      })
+
+      console.log(response.data.sales)
       setSales(response.data.sales || [])
     } catch (error) {
       console.error('Error al cargar ventas:', error)
@@ -63,7 +77,11 @@ export default function SalesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [activeStoreId, token])
+
+  useEffect(() => {
+    asyncLoad()
+  }, [asyncLoad])
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
@@ -106,7 +124,7 @@ export default function SalesPage() {
         <div className="flex gap-2">
           {/* Aquí puedes agregar filtros más adelante */}
         </div>
-        <NewSaleModal onSuccess={fetchSales} />
+        <NewSaleModal onSuccess={asyncLoad} />
       </div>
 
       <div className="border rounded-lg">
@@ -137,12 +155,12 @@ export default function SalesPage() {
                 <TableRow key={sale._id}>
                   <TableCell className="font-medium">{sale.receiptNumber}</TableCell>
                   <TableCell>
-                    {sale.clientId.profile?.names || sale.clientId.firstName}{' '}
-                    {sale.clientId.profile?.lastNames || sale.clientId.lastName}
+                    {sale.clientId?.profile?.names || "sale.clientId.firstName"}{' '}
+                    {sale.clientId?.profile?.lastNames || "sale.clientId.lastName"}
                   </TableCell>
                   <TableCell>
-                    {sale.sellerId.profile?.names || sale.sellerId.firstName}{' '}
-                    {sale.sellerId.profile?.lastNames || sale.sellerId.lastName}
+                    {sale.userId?.profile?.names || "sale.sellerId.firstName"}{' '}
+                    {sale.userId?.profile?.lastNames || "sale.sellerId.lastName"}
                   </TableCell>
                   <TableCell className="font-semibold">
                     ${sale.totals.total.toFixed(2)}
@@ -157,17 +175,32 @@ export default function SalesPage() {
                       {sale.status === 'completed'
                         ? 'Completada'
                         : sale.status === 'cancelled'
-                        ? 'Cancelada'
-                        : 'Reembolsada'}
+                          ? 'Cancelada'
+                          : 'Reembolsada'}
                     </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(sale.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon">
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedSaleId(sale._id)
+                            setDetailsModalOpen(true)
+                          }}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver detalles
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -175,6 +208,12 @@ export default function SalesPage() {
           </Table>
         )}
       </div>
+
+      <DetailsSaleModal
+        saleId={selectedSaleId}
+        open={detailsModalOpen}
+        onOpenChange={setDetailsModalOpen}
+      />
     </div>
   )
 }

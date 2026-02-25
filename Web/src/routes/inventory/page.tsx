@@ -6,7 +6,7 @@ import { ViewProduct } from '@/components/Products/ViewProduct'
 import { API_ENDPOINTS } from '@/config/api'
 import axios from 'axios'
 import { Package, MoreHorizontal, Eye, Pencil, Trash2 } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from 'react-toastify'
+import { useAuthStore } from '@/store/authStore'
 
 interface ProductData {
   _id: string
@@ -47,16 +48,27 @@ export default function Page() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
-  
+
   // Modal states
   const [viewOpen, setViewOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<ProductData | null>(null)
+  const activeStoreId = useAuthStore((state) => state.getActiveStoreId())
 
-  const asyncLoad = async () => {
+  const asyncLoad = useCallback(async () => {
+    if (!activeStoreId) {
+      setProducts([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
-      const response = await axios.get(API_ENDPOINTS.PRODUCTS.GET_ALL)
+      const response = await axios.get(API_ENDPOINTS.PRODUCTS.GET_ALL(activeStoreId), {
+        headers: {
+          Authorization: useAuthStore.getState().token
+        }
+      })
       console.log("Productos cargados:", response.data)
       setProducts(response.data.products || [])
     } catch (error) {
@@ -65,22 +77,31 @@ export default function Page() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeStoreId])
 
   useEffect(() => {
     asyncLoad()
-  }, [])
+  }, [asyncLoad]) // Recargar productos al cambiar de sede
 
   const handleDelete = async (productId: string) => {
     if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) {
       return
     }
 
+    if (!activeStoreId) {
+      toast.error("No hay tienda activa seleccionada")
+      return
+    }
+
     try {
-      await axios.delete(API_ENDPOINTS.PRODUCTS.DELETE(productId))
+      await axios.delete(API_ENDPOINTS.PRODUCTS.DELETE(activeStoreId, productId), {
+        headers: {
+          Authorization: useAuthStore.getState().token
+        }
+      })
       toast.success("Producto eliminado exitosamente")
       asyncLoad()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error al eliminar producto:", error)
       toast.error(error.response?.data?.message || "Error al eliminar producto")
@@ -166,9 +187,8 @@ export default function Page() {
         const status = row.getValue("status") as string
         return (
           <span
-            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-              statusColors[status] || "bg-gray-100 text-gray-700"
-            }`}
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[status] || "bg-gray-100 text-gray-700"
+              }`}
           >
             {statusLabels[status] || status}
           </span>
@@ -180,7 +200,7 @@ export default function Page() {
       header: "Acciones",
       cell: ({ row }) => {
         const product = row.original
-        
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

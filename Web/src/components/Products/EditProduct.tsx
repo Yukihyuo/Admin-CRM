@@ -16,6 +16,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { API_ENDPOINTS } from "../../config/api";
+import { useAuthStore } from "@/store/authStore";
 
 // Zod schema para validación
 const productSchema = z.object({
@@ -53,6 +54,7 @@ export function EditProduct({
   onProductUpdated,
 }: EditProductProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const activeStoreId = useAuthStore((state) => state.getActiveStoreId());
 
   const {
     register,
@@ -80,11 +82,15 @@ export function EditProduct({
 
   const onSubmit = async (data: ProductFormData) => {
     if (!product) return;
+    if (!activeStoreId) {
+      toast.error("No hay tienda activa seleccionada");
+      return;
+    }
 
     setIsLoading(true);
     try {
       const response = await axios.put(
-        API_ENDPOINTS.PRODUCTS.UPDATE(product._id),
+        API_ENDPOINTS.PRODUCTS.UPDATE(activeStoreId, product._id),
         data
       );
 
