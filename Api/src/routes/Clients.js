@@ -442,4 +442,4 @@ router.post('/changePassword', async (req, res) => {
   }
 });
 
-export default router
+export const routeConfig = { path: "/v1/clients", router }

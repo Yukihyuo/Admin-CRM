@@ -1,37 +1,50 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 import "./src/config/db.config.js"
 
-import staffRouter from './src/routes/Staff.js';
-import rolesRouter from './src/routes/Roles.js';
-import pagesRouter from './src/routes/Pages.js';
-import productsRouter from './src/routes/Products.js';
-import salesRouter from './src/routes/Sales.js';
-import schedulesRouter from './src/routes/Schedules.js';
-import analyticsRouter from './src/routes/Analytics.js';
-import brandsRouter from './src/routes/Brands.js';
-import storesRouter from './src/routes/Stores.js';
-import clientsRouter from './src/routes/Clients.js';
-
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Replicar __dirname en ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const routesPath = path.join(__dirname,'src', 'routes');
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rutas
-app.use('/v1/staff', staffRouter);
-app.use('/v1/roles', rolesRouter);
-app.use("/v1/pages", pagesRouter);
-app.use("/v1/products", productsRouter);
-app.use("/v1/sales", salesRouter);
-app.use("/v1/schedules", schedulesRouter);
-app.use("/v1/analytics", analyticsRouter);
-app.use("/v1/brands", brandsRouter);
-app.use("/v1/stores", storesRouter);
-app.use("/v1/clients", clientsRouter);
+// Función asíncrona para cargar rutas
+const loadRoutes = async () => {
+  const files = fs.readdirSync(routesPath);
+  console.log(files)
+  for (const file of files) {
+    if (file.endsWith('.js') && !file.startsWith('.')) {
+      const filePath = path.join(routesPath, file);
+
+      // Convertimos la ruta del sistema a una URL válida para import()
+      const fileUrl = pathToFileURL(filePath).href;
+
+      try {
+        const { routeConfig } = await import(fileUrl);
+
+        if (routeConfig?.path && routeConfig?.router) {
+          app.use(routeConfig.path, routeConfig.router);
+          console.log(`Ruta cargada: ${routeConfig.path}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error cargando ${file}:`, error.message);
+      }
+    }
+  }
+};
+
+// Ejecutamos la carga antes de iniciar el servidor
+await loadRoutes();
 
 app.get('/', (req, res) => {
   res.send('API is running');

@@ -346,4 +346,4 @@ router.delete('/:storeId/delete/:id', async (req, res) => {
   }
 });
 
-export default router;
+export const routeConfig = { path: "/v1/schedules", router }

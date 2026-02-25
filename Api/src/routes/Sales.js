@@ -372,4 +372,4 @@ router.patch('/:storeId/:id/status', async (req, res) => {
   }
 });
 
-export default router;
+export const routeConfig = { path: "/v1/sales", router }

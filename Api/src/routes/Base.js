@@ -6,4 +6,4 @@ const router = express.Router()
 
 
 
-export default router
+export const routeConfig = { path: "/v1/base", router }

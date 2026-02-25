@@ -222,5 +222,5 @@ router.delete('/delete/:id', async (req, res) => {
   }
 });
 
-export default router;
+export const routeConfig = { path: "/v1/roles", router }
 

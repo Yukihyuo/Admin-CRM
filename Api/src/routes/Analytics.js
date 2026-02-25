@@ -425,4 +425,4 @@ router.get("/subscriptions/expiring-soon", async (req, res) => {
   }
 })
 
-export default router
+export const routeConfig = { path: "/v1/analytics", router }
