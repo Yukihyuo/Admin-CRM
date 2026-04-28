@@ -1,14 +1,75 @@
 import express from "express"
 import bcrypt from "bcrypt"
+import jwt from "jsonwebtoken"
 import Client from "../models/Client.js"
 import Store from "../models/Store.js"
+import Visit from "../models/Visit.js"
+import Brand from "../models/Brand.js"
+import { sendWelcomeEmail } from "../emails/email.handler.js"
+import { findClientByIdentifier, registerVisit } from "../services/Access.services.js"
+
 
 const router = express.Router()
+
+router.get('/sendMail', async (req, res) => {
+  try {
+    const client = await Client.findById("69a8cbf29cd294422dab7586")
+    const brand = await Brand.findById(client.brandId)
+    sendWelcomeEmail(client, brand)
+    res.status(200).json("Email de bienvenida enviado")
+  } catch (error) {
+    console.error('Error en getProfile:', error);
+    res.status(500).json({
+      message: 'Error al obtener perfil del cliente',
+      error: error.message
+    })
+  }
+})
+
+router.get('/searchSelect/:search', async (req, res) => {
+  const { search } = req.params;
+  const { brandid } = req.headers;
+
+  try {
+    if (!brandid) {
+      return res.status(400).json({ message: 'El header brandId es requerido' });
+    }
+
+    const searchRegex = new RegExp(search, 'i');
+
+    const clients = await Client.find({
+      brandId: brandid,
+      $or: [
+        { _id: searchRegex }, // Al ser String, ahora puedes usar Regex aquí también
+        { username: searchRegex },
+        { 'profile.names': searchRegex },
+        { 'profile.lastNames': searchRegex },
+        { 'profile.phone': searchRegex }
+      ]
+    })
+      .select('_id username profile')
+      .limit(15) 
+      .sort({ 'profile.names': 1 })
+      .lean();
+
+    const formattedClients = clients.map(client => ({
+      value: client._id, // Tu ID de "portabilidad"
+      label: `${client.profile?.names || ''} ${client.profile?.lastNames || ''}`.trim() || client.username,
+      // Metadata para que el usuario identifique al socio correcto
+      subtitle: `${client.profile?.phone || ''} | ID: ${client._id}` 
+    }));
+
+    res.status(200).json(formattedClients);
+  } catch (error) {
+    console.error('Error en searchSelect:', error);
+    res.status(500).json({ message: 'Error al buscar clientes' });
+  }
+});
 
 // Create - Crear nuevo cliente
 router.post('/create', async (req, res) => {
   try {
-    const { email, storeId, profile } = req.body;
+    const { email, storeId, profile, username: requestedUsername } = req.body;
 
     // Validar campos requeridos
     if (!email || !storeId || !profile?.names || !profile?.lastNames) {
@@ -35,15 +96,23 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    // Extraer username del email (texto antes del @)
-    const username = email.split('@')[0];
+    // Permitir username manual; si no se envía, se deriva del email
+    const username = typeof requestedUsername === 'string' && requestedUsername.trim()
+      ? requestedUsername.trim()
+      : email.split('@')[0];
+
+    if (!username) {
+      return res.status(400).json({
+        message: 'Username inválido'
+      });
+    }
 
     // Verificar si el username ya existe
     const existingUsername = await Client.findOne({ username });
 
     if (existingUsername) {
       return res.status(400).json({
-        message: 'El username derivado del email ya existe. Use un email diferente.'
+        message: 'El username ya existe. Use uno diferente.'
       });
     }
 
@@ -66,8 +135,20 @@ router.post('/create', async (req, res) => {
 
     await newClient.save();
 
+    let welcomeEmailSent = false;
+    try {
+      const brand = await Brand.findById(store.brandId);
+      if (brand) {
+        await sendWelcomeEmail(newClient, brand);
+        welcomeEmailSent = true;
+      }
+    } catch (emailError) {
+      console.error('Error enviando email de bienvenida:', emailError);
+    }
+
     res.status(201).json({
       message: 'Cliente creado exitosamente',
+      welcomeEmailSent,
       client: {
         id: newClient._id,
         username: newClient.username,
@@ -90,31 +171,22 @@ router.post('/create', async (req, res) => {
   }
 });
 
+// ===================== Endpoints de inicio de sesión de cliente =====================
 // Login - Iniciar sesión de cliente
 router.post('/login', async (req, res) => {
   try {
-    const { username, password, storeId } = req.body;
+    const { username, password } = req.body;
 
     // Validar campos
-    if (!username || !password || !storeId) {
+    if (!username || !password) {
       return res.status(400).json({
-        message: 'Username, contraseña y ID de tienda son requeridos'
-      });
-    }
-
-    // Buscar la tienda para obtener el brandId
-    const store = await Store.findById(storeId);
-
-    if (!store) {
-      return res.status(404).json({
-        message: 'Tienda no encontrada'
+        message: 'Username/email y contraseña son requeridos'
       });
     }
 
     // Buscar cliente por username o email
     const client = await Client.findOne({
-      $or: [{ username }, { email: username }],
-      brandId: store.brandId
+      $or: [{ username }, { email: username }]
     });
 
     if (!client) {
@@ -139,8 +211,19 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    const token = jwt.sign(
+      {
+        userId: client._id,
+        username: client.username,
+        email: client.email,
+      },
+      process.env.jwtSecret || 'client-login-dev-secret',
+      { expiresIn: '120d' }
+    );
+
     res.status(200).json({
       message: 'Login exitoso',
+      token,
       client: {
         id: client._id,
         username: client.username,
@@ -159,6 +242,8 @@ router.post('/login', async (req, res) => {
     });
   }
 });
+
+// ===================== Endpoints de gestión de clientes =====================
 
 // GetAll - Obtener todos los clientes
 router.get('/getAll', async (req, res) => {
@@ -441,5 +526,90 @@ router.post('/changePassword', async (req, res) => {
     });
   }
 });
+
+router.get('/assistance/:clientId', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+
+    const visits = await Visit.find({ clientId })
+
+    res.status(200).json({
+      message: 'Asistencias del cliente obtenidas exitosamente.',
+      clientId,
+      count: visits.length,
+      visits
+    });
+  }
+  catch (error) {
+    console.error('Error en getAssistance:', error);
+    res.status(500).json({
+      message: 'Error al obtener asistencias del cliente',
+      error: error.message
+    })
+  }
+
+})
+
+router.post('/login-qr', async (req, res) => {
+  try {
+    const { qrData } = req.body;
+
+    if (!qrData) {
+      return res.status(400).json({
+        message: 'qrData es requerido'
+      })
+    }
+
+    const client = await findClientByIdentifier(qrData)
+
+    if (!client) {
+      return res.status(404).json({
+        message: 'Cliente no encontrado'
+      });
+    }
+
+    const result = await registerVisit(client, 'qr')
+    return res.status(result.status).json(result.payload)
+
+  } catch (error) {
+    console.error('Error en login-qr:', error);
+    res.status(500).json({
+      message: 'Error al iniciar sesión con QR',
+      error: error.message
+    });
+  }
+})
+
+router.post('/login-qr-contact', async (req, res) => {
+  try {
+    const { email, phone } = req.body
+    const identifier = email || phone
+
+    if (!identifier) {
+      return res.status(400).json({
+        message: 'Debe enviar email o phone'
+      })
+    }
+    console.log(identifier)
+    const client = await findClientByIdentifier(identifier)
+
+    if (!client) {
+      return res.status(404).json({
+        message: 'Cliente no encontrado'
+      })
+    }
+
+    const result = await registerVisit(client, 'manual')
+    return res.status(result.status).json(result.payload)
+  } catch (error) {
+    console.error('Error en login-qr-contact:', error)
+    res.status(500).json({
+      message: 'Error al iniciar sesión con email o phone',
+      error: error.message
+    })
+  }
+})
+
+
 
 export const routeConfig = { path: "/v1/clients", router }
