@@ -19,8 +19,8 @@ const productMasterSchema = new mongoose.Schema({
   
   // DATOS FISCALES (Se llenan una vez y heredan a todas las sucursales)
   fiscalData: {
-    satClaveProdServ: { type: String, default: '01010101' },
-    satClaveUnidad: { type: String, default: 'H87' },
+    satKey: { type: String, default: '01010101', ref: 'SatCatalog' }, // Clave oficial del SAT, ej: "10111512"
+    satUnitKey: { type: String, default: 'H87', ref: 'SatUnitCatalog' }, // Clave oficial de unidad del SAT, ej: "H87"
     defaultTaxRate: { type: Number, default: 0.16 }
   },
 
@@ -29,7 +29,7 @@ const productMasterSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Búsqueda rápida por SKU o Nombre en todo el catálogo del negocio
-productMasterSchema.index({ businessId: 1, sku: 1 }, { unique: true });
+productMasterSchema.index({ brandId: 1, sku: 1 }, { unique: true });
 productMasterSchema.index({ name: 'text' });
 
 const ProductMaster = mongoose.model('ProductMaster', productMasterSchema);

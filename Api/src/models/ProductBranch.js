@@ -7,7 +7,7 @@ const productBranchSchema = new mongoose.Schema({
   },
   masterProductId: { 
     type: String, 
-    ref: 'MasterProduct', 
+    ref: 'ProductMaster', 
     required: true 
   },
   storeId: { // ID de la sucursal específica

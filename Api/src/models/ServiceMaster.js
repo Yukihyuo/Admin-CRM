@@ -16,8 +16,8 @@ const serviceMasterSchema = new mongoose.Schema({
   
   // DATOS FISCALES DE SERVICIO
   fiscalData: {
-    satClaveProdServ: { type: String, default: '82101500' }, // Clave de servicios genérica
-    satClaveUnidad: { type: String, default: 'E48' }, // 'E48' es la clave SAT para "Unidad de servicio"
+    satKey: { type: String, default: '82101500', ref: 'SatCatalog' }, // Clave de servicios genérica
+    satUnitKey: { type: String, default: 'E48', ref: 'SatUnitCatalog' }, // 'E48' es la clave SAT para "Unidad de servicio"
     defaultTaxRate: { type: Number, default: 0.16 }
   },
 

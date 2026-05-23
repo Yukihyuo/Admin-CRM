@@ -1,240 +1,124 @@
-import express from 'express';
-import Product from '../models/Product.js';
-import Store from '../models/Store.js';
+import express from 'express'
+import {
+  createProductMasterWithOptionalBranch,
+  createProductBranch,
+  getProductMastersByBrand,
+  getProductMasterById,
+  getProductBranchesByStore,
+  getProductBranchById,
+  ServiceError
+} from '../services/Products.services.js'
 
-const router = express.Router();
+const router = express.Router()
 
-const validateStoreExists = async (storeId) => {
-  if (!storeId) return false;
-  const store = await Store.findById(storeId);
-  return !!store;
-};
+const handleRouteError = (error, res, routeName) => {
+  console.error(`Error en ${routeName}:`, error)
 
-// Create - Crear un nuevo producto
-router.post('/create', async (req, res) => {
-  try {
-    const { storeId, name, description, price, stock, category, status } = req.body;
-
-    // Validar campos requeridos
-    if (!storeId || !name || !description || price === undefined || !category) {
-      return res.status(400).json({
-        message: 'ID de tienda, nombre, descripción, precio y categoría son requeridos'
-      });
-    }
-
-    const storeExists = await validateStoreExists(storeId);
-    if (!storeExists) {
-      return res.status(404).json({
-        message: 'Tienda no encontrada'
-      });
-    }
-
-    // Validar precio positivo
-    if (price < 0) {
-      return res.status(400).json({
-        message: 'El precio no puede ser negativo'
-      });
-    }
-
-    // Validar stock positivo
-    if (stock !== undefined && stock < 0) {
-      return res.status(400).json({
-        message: 'El stock no puede ser negativo'
-      });
-    }
-
-    // Crear el nuevo producto
-    const newProduct = new Product({
-      storeId,
-      name,
-      description,
-      price,
-      stock: stock || 0,
-      category,
-      status: status || 'available'
-    });
-
-    await newProduct.save();
-    // console.log(newProduct)
-
-    res.status(201).json({
-      message: 'Producto creado exitosamente',
-      product: newProduct
-    });
-
-  } catch (error) {
-    console.error('Error en create:', error);
-    res.status(500).json({
-      message: 'Error al crear producto',
-      error: error.message
-    });
+  if (error instanceof ServiceError) {
+    return res.status(error.status).json({
+      message: error.message,
+      details: error.details
+    })
   }
-});
 
-// GetAll - Obtener todos los productos
-router.get('/:storeId/getAll', async (req, res) => {
+  return res.status(500).json({
+    message: 'Error interno al procesar productos',
+    error: error.message
+  })
+}
+
+// Create - Crear un ProductMaster y opcionalmente un ProductBranch
+router.post('/master/create', async (req, res) => {
   try {
-    const { storeId } = req.params;
-    const storeExists = await validateStoreExists(storeId);
-    if (!storeExists) {
-      return res.status(404).json({
-        message: 'Tienda no encontrada'
-      });
-    }
+    const result = await createProductMasterWithOptionalBranch(req.body)
 
-    const products = await Product.find({ storeId }).sort({ createdAt: -1 });
+    return res.status(201).json({
+      message: result.branchCreated
+        ? 'ProductMaster y ProductBranch creados exitosamente'
+        : 'ProductMaster creado exitosamente',
+      productMaster: result.productMaster,
+      productBranch: result.productBranch,
+      branchCreated: result.branchCreated
+    })
+  } catch (error) {
+    return handleRouteError(error, res, 'master/create')
+  }
+})
 
-    res.status(200).json({
-      message: 'Productos obtenidos exitosamente',
+// Create - Crear un ProductBranch para un ProductMaster existente
+router.post('/branch/create', async (req, res) => {
+  try {
+    const productBranch = await createProductBranch(req.body)
+
+    return res.status(201).json({
+      message: 'ProductBranch creado exitosamente',
+      productBranch
+    })
+  } catch (error) {
+    return handleRouteError(error, res, 'branch/create')
+  }
+})
+
+// GetAll - Obtener ProductMaster por marca
+router.get('/master/:brandId/getAll', async (req, res) => {
+  try {
+    const { brandId } = req.params
+    const products = await getProductMastersByBrand(brandId)
+
+    return res.status(200).json({
+      message: 'ProductMaster obtenidos exitosamente',
       count: products.length,
-      products: products
-    });
-
+      products
+    })
   } catch (error) {
-    console.error('Error en getAll:', error);
-    res.status(500).json({
-      message: 'Error al obtener productos',
-      error: error.message
-    });
+    return handleRouteError(error, res, 'master/getAll')
   }
-});
+})
 
-// GetById - Obtener un producto por ID dentro de una tienda
-router.get('/:storeId/getById/:id', async (req, res) => {
+// GetById - Obtener un ProductMaster por ID
+router.get('/master/getById/:id', async (req, res) => {
   try {
-    const { storeId, id } = req.params;
+    const { id } = req.params
+    const productMaster = await getProductMasterById(id)
 
-    const storeExists = await validateStoreExists(storeId);
-    if (!storeExists) {
-      return res.status(404).json({
-        message: 'Tienda no encontrada'
-      });
-    }
-
-    const product = await Product.findOne({ _id: id, storeId });
-
-    if (!product) {
-      return res.status(404).json({
-        message: 'Producto no encontrado'
-      });
-    }
-
-    res.status(200).json({
-      message: 'Producto obtenido exitosamente',
-      product: product
-    });
-
+    return res.status(200).json({
+      message: 'ProductMaster obtenido exitosamente',
+      productMaster
+    })
   } catch (error) {
-    console.error('Error en getById:', error);
-    res.status(500).json({
-      message: 'Error al obtener producto',
-      error: error.message
-    });
+    return handleRouteError(error, res, 'master/getById')
   }
-});
+})
 
-// Update - Actualizar un producto dentro de una tienda
-router.put('/:storeId/update/:id', async (req, res) => {
+// GetAll - Obtener ProductBranch por sucursal
+router.get('/branch/:storeId/getAll', async (req, res) => {
   try {
-    const { storeId, id } = req.params;
-    const { name, description, price, stock, category, status } = req.body;
+    const { storeId } = req.params
+    const products = await getProductBranchesByStore(storeId)
 
-    const storeExists = await validateStoreExists(storeId);
-    if (!storeExists) {
-      return res.status(404).json({
-        message: 'Tienda no encontrada'
-      });
-    }
-
-    // Buscar el producto
-    const product = await Product.findOne({ _id: id, storeId });
-
-    if (!product) {
-      return res.status(404).json({
-        message: 'Producto no encontrado'
-      });
-    }
-
-    // Validar precio si se proporciona
-    if (price !== undefined && price < 0) {
-      return res.status(400).json({
-        message: 'El precio no puede ser negativo'
-      });
-    }
-
-    // Validar stock si se proporciona
-    if (stock !== undefined && stock < 0) {
-      return res.status(400).json({
-        message: 'El stock no puede ser negativo'
-      });
-    }
-
-    // Validar estado si se proporciona
-    if (status !== undefined) {
-      const validStatuses = ['available', 'unavailable', 'discontinued'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({
-          message: 'Estado inválido. Debe ser: available, unavailable o discontinued'
-        });
-      }
-    }
-
-    // Actualizar campos
-    if (name !== undefined) product.name = name;
-    if (description !== undefined) product.description = description;
-    if (price !== undefined) product.price = price;
-    if (stock !== undefined) product.stock = stock;
-    if (category !== undefined) product.category = category;
-    if (status !== undefined) product.status = status;
-
-    await product.save();
-
-    res.status(200).json({
-      message: 'Producto actualizado exitosamente',
-      product: product
-    });
-
+    return res.status(200).json({
+      message: 'ProductBranch obtenidos exitosamente',
+      count: products.length,
+      products
+    })
   } catch (error) {
-    console.error('Error en update:', error);
-    res.status(500).json({
-      message: 'Error al actualizar producto',
-      error: error.message
-    });
+    return handleRouteError(error, res, 'branch/getAll')
   }
-});
+})
 
-// Delete - Eliminar un producto dentro de una tienda
-router.delete('/:storeId/delete/:id', async (req, res) => {
+// GetById - Obtener un ProductBranch por ID
+router.get('/branch/getById/:id', async (req, res) => {
   try {
-    const { storeId, id } = req.params;
+    const { id } = req.params
+    const productBranch = await getProductBranchById(id)
 
-    const storeExists = await validateStoreExists(storeId);
-    if (!storeExists) {
-      return res.status(404).json({
-        message: 'Tienda no encontrada'
-      });
-    }
-
-    const product = await Product.findOneAndDelete({ _id: id, storeId });
-
-    if (!product) {
-      return res.status(404).json({
-        message: 'Producto no encontrado'
-      });
-    }
-
-    res.status(200).json({
-      message: 'Producto eliminado exitosamente',
-      product: product
-    });
-
+    return res.status(200).json({
+      message: 'ProductBranch obtenido exitosamente',
+      productBranch
+    })
   } catch (error) {
-    console.error('Error en delete:', error);
-    res.status(500).json({
-      message: 'Error al eliminar producto',
-      error: error.message
-    });
+    return handleRouteError(error, res, 'branch/getById')
   }
-});
+})
 
-export const routeConfig = { path: "/v1/products", router }
+export const routeConfig = { path: '/v1/products', router }

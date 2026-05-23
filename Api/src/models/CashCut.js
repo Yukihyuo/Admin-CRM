@@ -5,52 +5,46 @@ const cashClosingSchema = new mongoose.Schema({
     type: String,
     default: () => new mongoose.Types.ObjectId().toString()
   },
-  staffId: { type: String, required: true, ref: 'Staff' }, // Referencia a tu string _id del empleado
-  brandId: { type: String, required: true, ref: 'Brand' }, // Referencia a tu string _id de la marca
-  storeId: { type: String, required: true, ref: 'Store' }, // Referencia a tu string _id de la sucursal
+  staffId: { type: String, required: true, ref: 'Staff' },
+  brandId: { type: String, required: true, ref: 'Brand' },
+  storeId: { type: String, required: true, ref: 'Store' },
+  
   openingDate: { type: Date, required: true },
   closingDate: { type: Date, default: Date.now },
 
-  // Monto con el que inició el turno (Fondo de caja)
-  initialCash: { type: Number, required: true, default: 0 },
-
-  // Lo que el sistema registró (antes "expectedSales")
+  // --- FLUJO DE EFECTIVO ---
+  initialCash: { type: Number, required: true, default: 0 }, // Fondo de caja
+  
+  // Totales calculados por el sistema (Query a Sales y Expenses en el backend)
   systemTotals: {
-    byMethod: {
-      cash: { type: Number, default: 0 },
-      transfer: { type: Number, default: 0 },
-      card: { type: Number, default: 0 }
-    },
-    byCategory: {
-      products: { type: Number, default: 0 },
-      subscriptions: { type: Number, default: 0 }
-    },
-    grandTotal: { type: Number, required: true }
+    totalSales: { type: Number, required: true }, // Suma total de ventas (Efectivo + Tarjeta + Transfer)
+    totalExpenses: { type: Number, default: 0 },  // Suma de gastos registrados
+    expectedCash: { type: Number, required: true } // (initialCash + salesInCash) - totalExpenses
   },
 
-  // Lo que el empleado reporta que hay físicamente
+  // --- REPORTE DEL EMPLEADO ---
   reportedTotals: {
-    cashInHand: { type: Number, required: true }, // Conteo físico de billetes/monedas
-    transferReceipts: { type: Number, default: 0 }, // Suma de comprobantes de transferencia
-    cardSlips: { type: Number, default: 0 }        // Suma de vouchers de la terminal
+    cashInHand: { type: Number, required: true },
+    transferAmount: { type: Number, default: 0 },
+    cardAmount: { type: Number, default: 0 }
   },
 
-  // Diferencia calculada: (reportedTotals.cashInHand) - (systemTotals.byMethod.cash + initialCash)
+  // Diferencia solo en efectivo (es lo más común que "falta" o "sobra")
   cashDifference: { type: Number, required: true },
   
   status: { 
     type: String, 
-    enum: ['balanced', 'shortage', 'surplus', 'pending','incomplete'], 
+    enum: ['balanced', 'shortage', 'surplus', 'pending', 'incomplete'], 
     default: 'balanced' 
   },
   
-  salesIds: [{ type: String, ref: 'Sale' }], // Array de tus IDs (Strings) de ventas y suscripciones
-  subscriptionAssignmentIds: [{ type: String, ref: 'SubscriptionAssignment' }], // Array de IDs de asignaciones de suscripciones
-  expensesIds: [{ type: String, ref: 'Expense' }], // Array de tus IDs (Strings) de gastos
+  // --- LOS ENLACES (Audit Log) ---
+  // Guardamos los IDs para "congelar" qué ventas entraron en este cierre.
+  salesIds: [{ type: String }], 
+  expensesIds: [{ type: String }], 
   
   notes: { type: String }
 }, { timestamps: true });
 
 const CashCut = mongoose.model('CashCut', cashClosingSchema);
-
 export default CashCut;

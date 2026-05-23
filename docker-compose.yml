@@ -1,0 +1,79 @@
+services:
+  nginx-proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80'   # Tráfico web normal
+      - '443:443' # Tráfico seguro (SSL)
+      - '81:81'   # ESTE ES EL PUERTO PARA LA INTERFAZ GRÁFICA
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - app-network
+  # Base de Datos
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_project
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=Sys73mUs3r
+      - MONGO_INITDB_ROOT_PASSWORD=AddzTMW4ciJ5CzZiiMBF
+    networks:
+      - app-network
+
+  # Backend Express
+  api:
+    build: ./Api
+    container_name: express_api
+    environment:
+      - databaseUrl=mongodb://Sys73mUs3r:AddzTMW4ciJ5CzZiiMBF@mongodb:27017/gimnasios?authSource=admin
+      - jwtSecret=YxoSrXRQTjdOaUGfEXewIOhG
+      - PORT=3010
+      - EmailSend=itsaltilloquentli@gmail.com
+      - EmailPasswordApp=bioqricozxcgrdqp
+    ports:
+      - "3010:3010"
+    depends_on:
+      - mongodb
+    networks:
+      - app-network
+
+  # Frontend Administrativo (Vite)
+  web:
+    build: ./Web
+    container_name: vite_web
+    environment:
+      - VITE_API_URL=https://api.nexay.fit/  # <--- IMPORTANTE: Usar el nuevo dominio
+      - VITE_APP_TITLE=My Controller Produccion
+      - VITE_SECRET_KEY=YxoSrXRQTjdOaUGfEXewIOhG
+      - VITE_HMR_HOST=dashboard.nexay.fit
+      - VITE_HMR_PROTOCOL=wss
+      - VITE_HMR_CLIENT_PORT=443
+    networks:
+      - app-network
+
+  # Frontend Cliente (Vite)
+  webclient:
+    build: ./ClientWeb
+    container_name: vite_client
+    environment:
+      - VITE_API_URL=https://api.nexay.fit/  # <--- IMPORTANTE: Usar el nuevo dominio
+      - VITE_APP_TITLE=My Controller Produccion
+      - VITE_SECRET_KEY=YxoSrXRQTjdOaUGfEXewIOhG
+      - VITE_HMR_HOST=client.nexay.fit
+      - VITE_HMR_PROTOCOL=wss
+      - VITE_HMR_CLIENT_PORT=443
+    networks:
+      - app-network
+
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo_data:

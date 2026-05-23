@@ -3,10 +3,9 @@ import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import Client from "../models/Client.js"
 import Store from "../models/Store.js"
-import Visit from "../models/Visit.js"
 import Brand from "../models/Brand.js"
 import { sendWelcomeEmail } from "../emails/email.handler.js"
-import { findClientByIdentifier, registerVisit } from "../services/Access.services.js"
+// import { findClientByIdentifier, registerVisit } from "../services/Access.services.js"
 
 
 const router = express.Router()
@@ -527,88 +526,88 @@ router.post('/changePassword', async (req, res) => {
   }
 });
 
-router.get('/assistance/:clientId', async (req, res) => {
-  try {
-    const { clientId } = req.params;
+// router.get('/assistance/:clientId', async (req, res) => {
+//   try {
+//     const { clientId } = req.params;
 
-    const visits = await Visit.find({ clientId })
+//     const visits = await Visit.find({ clientId })
 
-    res.status(200).json({
-      message: 'Asistencias del cliente obtenidas exitosamente.',
-      clientId,
-      count: visits.length,
-      visits
-    });
-  }
-  catch (error) {
-    console.error('Error en getAssistance:', error);
-    res.status(500).json({
-      message: 'Error al obtener asistencias del cliente',
-      error: error.message
-    })
-  }
+//     res.status(200).json({
+//       message: 'Asistencias del cliente obtenidas exitosamente.',
+//       clientId,
+//       count: visits.length,
+//       visits
+//     });
+//   }
+//   catch (error) {
+//     console.error('Error en getAssistance:', error);
+//     res.status(500).json({
+//       message: 'Error al obtener asistencias del cliente',
+//       error: error.message
+//     })
+//   }
 
-})
+// })
 
-router.post('/login-qr', async (req, res) => {
-  try {
-    const { qrData } = req.body;
+// router.post('/login-qr', async (req, res) => {
+//   try {
+//     const { qrData } = req.body;
 
-    if (!qrData) {
-      return res.status(400).json({
-        message: 'qrData es requerido'
-      })
-    }
+//     if (!qrData) {
+//       return res.status(400).json({
+//         message: 'qrData es requerido'
+//       })
+//     }
 
-    const client = await findClientByIdentifier(qrData)
+//     const client = await findClientByIdentifier(qrData)
 
-    if (!client) {
-      return res.status(404).json({
-        message: 'Cliente no encontrado'
-      });
-    }
+//     if (!client) {
+//       return res.status(404).json({
+//         message: 'Cliente no encontrado'
+//       });
+//     }
 
-    const result = await registerVisit(client, 'qr')
-    return res.status(result.status).json(result.payload)
+//     const result = await registerVisit(client, 'qr')
+//     return res.status(result.status).json(result.payload)
 
-  } catch (error) {
-    console.error('Error en login-qr:', error);
-    res.status(500).json({
-      message: 'Error al iniciar sesión con QR',
-      error: error.message
-    });
-  }
-})
+//   } catch (error) {
+//     console.error('Error en login-qr:', error);
+//     res.status(500).json({
+//       message: 'Error al iniciar sesión con QR',
+//       error: error.message
+//     });
+//   }
+// })
 
-router.post('/login-qr-contact', async (req, res) => {
-  try {
-    const { email, phone } = req.body
-    const identifier = email || phone
+// router.post('/login-qr-contact', async (req, res) => {
+//   try {
+//     const { email, phone } = req.body
+//     const identifier = email || phone
 
-    if (!identifier) {
-      return res.status(400).json({
-        message: 'Debe enviar email o phone'
-      })
-    }
-    console.log(identifier)
-    const client = await findClientByIdentifier(identifier)
+//     if (!identifier) {
+//       return res.status(400).json({
+//         message: 'Debe enviar email o phone'
+//       })
+//     }
+//     console.log(identifier)
+//     const client = await findClientByIdentifier(identifier)
 
-    if (!client) {
-      return res.status(404).json({
-        message: 'Cliente no encontrado'
-      })
-    }
+//     if (!client) {
+//       return res.status(404).json({
+//         message: 'Cliente no encontrado'
+//       })
+//     }
 
-    const result = await registerVisit(client, 'manual')
-    return res.status(result.status).json(result.payload)
-  } catch (error) {
-    console.error('Error en login-qr-contact:', error)
-    res.status(500).json({
-      message: 'Error al iniciar sesión con email o phone',
-      error: error.message
-    })
-  }
-})
+//     const result = await registerVisit(client, 'manual')
+//     return res.status(result.status).json(result.payload)
+//   } catch (error) {
+//     console.error('Error en login-qr-contact:', error)
+//     res.status(500).json({
+//       message: 'Error al iniciar sesión con email o phone',
+//       error: error.message
+//     })
+//   }
+// })
 
 
 

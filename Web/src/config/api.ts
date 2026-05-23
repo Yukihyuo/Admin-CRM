@@ -1,5 +1,5 @@
 // Configuración de la API
-export const API_URL = 'http://localhost:3010/';
+export const API_URL = import.meta.env.VITE_API_URL;
 
 
 // Endpoints
@@ -8,10 +8,31 @@ export const API_ENDPOINTS = {
 
   BRANDS: {
     CREATE: `${API_URL}v1/brands/create`,
+    CREATE_FULL: `${API_URL}v1/brands/createFullBrand`,
     GET_ALL: `${API_URL}v1/brands/getAll`,
     GET_BY_ID: (brandId: string) => `${API_URL}v1/brands/getById/${brandId}`,
     UPDATE: (brandId: string) => `${API_URL}v1/brands/update/${brandId}`,
+    GET_CONFIG: `v1/brands/config`,
+    UPDATE_CONFIG: `v1/brands/config`,
     DELETE: (brandId: string) => `${API_URL}v1/brands/delete/${brandId}`
+  },
+
+  CASH_CUTS: {
+    OPEN: `v1/cash-cuts/open`,
+    CLOSE: (cashCutId: string) => `v1/cash-cuts/close/${cashCutId}`,
+    UPDATE: (cashCutId: string) => `v1/cash-cuts/update/${cashCutId}`,
+    GET_OPEN_BY_USER: (userId: string) => `v1/cash-cuts/open/${userId}`,
+    GET_ALL: `v1/cash-cuts/getAll`,
+    GET_BY_ID: (cashCutId: string) => `v1/cash-cuts/getById/${cashCutId}`,
+    DELETE: (cashCutId: string) => `v1/cash-cuts/delete/${cashCutId}`
+  },
+
+  EXPENSES: {
+    CREATE: `v1/expenses/create`,
+    GET_ALL: `v1/expenses/getAll`,
+    GET_BY_ID: (expenseId: string) => `v1/expenses/getById/${expenseId}`,
+    UPDATE: (expenseId: string) => `v1/expenses/update/${expenseId}`,
+    DELETE: (expenseId: string) => `v1/expenses/delete/${expenseId}`,
   },
 
   STORES: {
@@ -21,6 +42,12 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (storeId: string) => `${API_URL}v1/stores/getById/${storeId}`,
     UPDATE: (storeId: string) => `${API_URL}v1/stores/update/${storeId}`,
     DELETE: (storeId: string) => `${API_URL}v1/stores/delete/${storeId}`
+  },
+
+  TERMINALS: {
+    CREATE: `${API_URL}v1/terminals/create`,
+    GET_ALL: `${API_URL}v1/terminals/getAll`,
+    DELETE: (terminalId: string) => `${API_URL}v1/terminals/delete/${terminalId}`
   },
 
   // Pages endpoints
@@ -60,6 +87,7 @@ export const API_ENDPOINTS = {
     LOGIN: `${API_URL}v1/clients/login`,
     GET_ALL_USERS: `${API_URL}v1/clients/getAll`,
     GET_BY_BRAND: (brandName: string) => `${API_URL}v1/clients/brand/${brandName}`,
+    SEARCH_SELECT: (search: string) => `${API_URL}v1/clients/searchSelect/${encodeURIComponent(search)}`,
     GET_BY_STORE: (storeName: string) => `${API_URL}v1/clients/store/${storeName}`,
     GET_BY_ID: (clientId: string) => `${API_URL}v1/clients/getById/${clientId}`,
     UPDATE_BY_ID: (clientId: string) => `${API_URL}v1/clients/update/${clientId}`,
@@ -74,6 +102,25 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (storeId: string, productId: string) => `${API_URL}v1/products/${storeId}/getById/${productId}`,
     UPDATE: (storeId: string, productId: string) => `${API_URL}v1/products/${storeId}/update/${productId}`,
     DELETE: (storeId: string, productId: string) => `${API_URL}v1/products/${storeId}/delete/${productId}`
+  },
+
+  // Subscriptions endpoints
+  SUBSCRIPTIONS: {
+    CREATE: `${API_URL}v1/subscriptions/create`,
+    GET_BY_BRAND: (brandId: string) => `${API_URL}v1/subscriptions/brand/${brandId}`,
+    GET_BY_ID: (subscriptionId: string) => `${API_URL}v1/subscriptions/getById/${subscriptionId}`,
+    UPDATE: (subscriptionId: string) => `${API_URL}v1/subscriptions/update/${subscriptionId}`,
+    DELETE: (subscriptionId: string) => `${API_URL}v1/subscriptions/delete/${subscriptionId}`
+  },
+
+  // Subscriptions assignments endpoints
+  SUBSCRIPTIONS_ASSIGNMENTS: {
+    CREATE: `${API_URL}v1/subscriptions-assignments/create`,
+    GET_BY_BRAND: (brandId: string) => `${API_URL}v1/subscriptions-assignments/brand/${brandId}`,
+    GET_BY_CLIENT: (clientId: string) => `${API_URL}v1/subscriptions-assignments/client/${clientId}`,
+    GET_BY_ID: (assignmentId: string) => `${API_URL}v1/subscriptions-assignments/getById/${assignmentId}`,
+    UPDATE: (assignmentId: string) => `${API_URL}v1/subscriptions-assignments/update/${assignmentId}`,
+    DELETE: (assignmentId: string) => `${API_URL}v1/subscriptions-assignments/delete/${assignmentId}`
   },
 
   // Sales endpoints
@@ -93,6 +140,15 @@ export const API_ENDPOINTS = {
     GET_BY_USER_ID: (storeId: string, userId: string) => `${API_URL}v1/schedules/${storeId}/getByUserId/${userId}`,
     UPDATE: (storeId: string, scheduleId: string) => `${API_URL}v1/schedules/${storeId}/update/${scheduleId}`,
     DELETE: (storeId: string, scheduleId: string) => `${API_URL}v1/schedules/${storeId}/delete/${scheduleId}`
+  },
+
+  // Diets endpoints
+  DIETS: {
+    CREATE: `${API_URL}v1/diets/create`,
+    GET_ALL: (clientId: string) => `${API_URL}v1/diets/${clientId}/getAll`,
+    GET_BY_ID: (clientId: string, dietId: string) => `${API_URL}v1/diets/${clientId}/getById/${dietId}`,
+    UPDATE: (clientId: string, dietId: string) => `${API_URL}v1/diets/${clientId}/update/${dietId}`,
+    DELETE: (clientId: string, dietId: string) => `${API_URL}v1/diets/${clientId}/delete/${dietId}`
   },
 
   // Analytics endpoints

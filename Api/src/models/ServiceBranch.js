@@ -7,7 +7,7 @@ const serviceBranchSchema = new mongoose.Schema({
   },
   masterServiceId: { 
     type: String, 
-    ref: 'MasterService', 
+    ref: 'ServiceMaster', 
     required: true 
   },
   storeId: { 
