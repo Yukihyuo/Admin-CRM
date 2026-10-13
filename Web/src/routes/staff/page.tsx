@@ -35,7 +35,7 @@ interface Profile {
 interface UserData {
   _id: string
   username: string
-  email: string
+  email?: string
   profile: Profile
   status: boolean
   assignments: Role[]

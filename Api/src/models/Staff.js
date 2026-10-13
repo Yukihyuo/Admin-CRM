@@ -13,8 +13,12 @@ const staffSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
-    unique: true
+    required: false,
+    unique: true,
+    // Sin `sparse` los usuarios sin email colisionarían entre sí por el valor nulo del índice
+    sparse: true,
+    trim: true,
+    lowercase: true
   },
   password: {
     type: String,
@@ -38,7 +42,12 @@ const staffSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   }
-}, { timestamps: true });
+}, {
+  timestamps: true,
+  // Los índices se reconcilian con syncIndexes() al arrancar la API, para poder
+  // cambiar las opciones del índice de email en bases que ya existían.
+  autoIndex: false
+});
 
 const Staff = mongoose.model('Staff', staffSchema);
 export default Staff;

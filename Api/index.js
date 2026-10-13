@@ -7,6 +7,7 @@ import http from "http"
 import { Server } from "socket.io"
 
 import { connectToDatabase } from "./src/config/db.config.js";
+import { syncStaffIndexes } from "./src/utils/indexes.utils.js";
 import "./src/services/Cronjobs.services.js";
 import { initializeSocketListeners } from './src/utils/socket.utils.js';
 
@@ -71,6 +72,14 @@ try {
 } catch (error) {
   console.error(`❌ No fue posible conectar con MongoDB: ${error.message}`);
   process.exit(1);
+}
+
+// El índice único de email de los usuarios ahora es `sparse` (email opcional):
+// hay que reconstruirlo en las bases que se crearon con la versión anterior.
+try {
+  await syncStaffIndexes();
+} catch (error) {
+  console.error(`❌ No se pudieron sincronizar los índices de usuarios: ${error.message}`);
 }
 
 // Ejecutamos la carga antes de iniciar el servidor

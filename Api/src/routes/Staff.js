@@ -16,21 +16,31 @@ router.post('/register', async (req, res) => {
   try {
     const { username, email, password, profile, roleId, brandId, scope } = req.body;
 
-    // Validar que los campos requeridos estén presentes
-    if (!username || !email || !password || !profile?.names || !profile?.lastNames) {
+    // El email es opcional; la contraseña se escribe explícitamente y es obligatoria
+    if (!username || !password || !profile?.names || !profile?.lastNames) {
       return res.status(400).json({
-        message: 'Username, email, password, nombres y apellidos son requeridos'
+        message: 'Username, password, nombres y apellidos son requeridos'
       });
     }
 
-    // Verificar si el usuario ya existe
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    // Verificar que el username no exista y, si se envió email, que tampoco esté repetido
     const existingUser = await Staff.findOne({
-      $or: [{ email }, { username }]
+      $or: normalizedEmail ? [{ email: normalizedEmail }, { username }] : [{ username }]
     });
 
     if (existingUser) {
       return res.status(400).json({
-        message: 'El usuario o email ya existe'
+        message: existingUser.username === username
+          ? 'El username ya existe'
+          : 'El email ya está registrado'
       });
     }
 
@@ -40,7 +50,8 @@ router.post('/register', async (req, res) => {
     // Crear el nuevo usuario
     const newUser = new Staff({
       username,
-      email,
+      // Sin email el campo no se guarda para no chocar con el índice único
+      ...(normalizedEmail && { email: normalizedEmail }),
       password: hashedPassword,
       profile: {
         names: profile.names,
@@ -102,6 +113,17 @@ router.post('/register', async (req, res) => {
 
   } catch (error) {
     console.error('Error en register:', error);
+
+    // Si dos peticiones pasan la verificación previa, el índice único lo detecta aquí
+    if (error?.code === 11000) {
+      const duplicatedField = Object.keys(error.keyPattern || {})[0];
+      return res.status(400).json({
+        message: duplicatedField === 'email'
+          ? 'El email ya está registrado'
+          : 'El username ya existe'
+      });
+    }
+
     res.status(500).json({
       message: 'Error al registrar usuario',
       error: error.message
