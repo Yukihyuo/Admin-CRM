@@ -387,6 +387,133 @@ router.get('/store/:storeId', async (req, res) => {
 });
 
 
+// Update - Actualizar los datos de un usuario
+router.put('/update/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, email, profile } = req.body;
+
+    const user = await Staff.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    if (username && username !== user.username) {
+      const usernameTaken = await Staff.findOne({ username, _id: { $ne: id } });
+
+      if (usernameTaken) {
+        return res.status(400).json({
+          message: 'El username ya está en uso'
+        });
+      }
+
+      user.username = username;
+    }
+
+    // El email es opcional: si se envía vacío se elimina del documento
+    if (email !== undefined) {
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+      if (normalizedEmail && normalizedEmail !== user.email) {
+        const emailTaken = await Staff.findOne({ email: normalizedEmail, _id: { $ne: id } });
+
+        if (emailTaken) {
+          return res.status(400).json({
+            message: 'El email ya está registrado'
+          });
+        }
+      }
+
+      user.email = normalizedEmail || undefined;
+    }
+
+    if (profile?.names !== undefined && !String(profile.names).trim()) {
+      return res.status(400).json({
+        message: 'El nombre no puede estar vacío'
+      });
+    }
+
+    if (profile?.lastNames !== undefined && !String(profile.lastNames).trim()) {
+      return res.status(400).json({
+        message: 'Los apellidos no pueden estar vacíos'
+      });
+    }
+
+    if (profile) {
+      user.profile.names = profile.names ?? user.profile.names;
+      user.profile.lastNames = profile.lastNames ?? user.profile.lastNames;
+      user.profile.phone = profile.phone ?? user.profile.phone;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Usuario actualizado exitosamente',
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        profile: user.profile,
+        status: user.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en update:', error);
+
+    if (error?.code === 11000) {
+      const duplicatedField = Object.keys(error.keyPattern || {})[0];
+      return res.status(400).json({
+        message: duplicatedField === 'email'
+          ? 'El email ya está registrado'
+          : 'El username ya está en uso'
+      });
+    }
+
+    res.status(500).json({
+      message: 'Error al actualizar usuario',
+      error: error.message
+    });
+  }
+});
+
+// Status - Activar o desactivar un usuario
+router.put('/status/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (typeof status !== 'boolean') {
+      return res.status(400).json({
+        message: 'El estado debe ser true o false'
+      });
+    }
+
+    const user = await Staff.findByIdAndUpdate(id, { status }, { new: true }).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    res.status(200).json({
+      message: status ? 'Usuario activado exitosamente' : 'Usuario desactivado exitosamente',
+      user
+    });
+
+  } catch (error) {
+    console.error('Error en status:', error);
+    res.status(500).json({
+      message: 'Error al actualizar el estado del usuario',
+      error: error.message
+    });
+  }
+});
+
 router.post('/changePassword', async (req, res) => {
   try {
     const { userId, newPassword } = req.body;
