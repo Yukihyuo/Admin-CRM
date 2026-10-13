@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import '../config/db.config.js'; // Al importar esto, se ejecuta la conexión automáticamente
+import { connectToDatabase } from '../config/db.config.js';
 
 import Page from "../models/Page.js";
 import Module from "../models/Module.js";
@@ -99,5 +99,7 @@ const seed = async () => {
     process.exit(0);
   }
 };
+
+await connectToDatabase();
 
 seed();

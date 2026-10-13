@@ -15,6 +15,7 @@ services:
   mongodb:
     image: mongo:latest
     container_name: mongodb_project
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
@@ -22,6 +23,12 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=Sys73mUs3r
       - MONGO_INITDB_ROOT_PASSWORD=AddzTMW4ciJ5CzZiiMBF
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - app-network
 
@@ -29,6 +36,7 @@ services:
   api:
     build: ./Api
     container_name: express_api
+    restart: unless-stopped
     environment:
       - databaseUrl=mongodb://Sys73mUs3r:AddzTMW4ciJ5CzZiiMBF@mongodb:27017/gimnasios?authSource=admin
       - jwtSecret=YxoSrXRQTjdOaUGfEXewIOhG
@@ -38,7 +46,8 @@ services:
     ports:
       - "3010:3010"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - app-network
 

@@ -6,8 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import http from "http"
 import { Server } from "socket.io"
 
-import "./src/config/db.config.js"
-import "./src/services/Cronjobs.services.js"
+import { connectToDatabase } from "./src/config/db.config.js";
+import "./src/services/Cronjobs.services.js";
 import { initializeSocketListeners } from './src/utils/socket.utils.js';
 
 const app = express();
@@ -63,6 +63,15 @@ const loadRoutes = async () => {
     }
   }
 };
+
+// Esperamos la conexión antes de aceptar tráfico: así ninguna petición se queda
+// esperando en el buffer de Mongoose mientras MongoDB termina de responder.
+try {
+  await connectToDatabase();
+} catch (error) {
+  console.error(`❌ No fue posible conectar con MongoDB: ${error.message}`);
+  process.exit(1);
+}
 
 // Ejecutamos la carga antes de iniciar el servidor
 await loadRoutes();
