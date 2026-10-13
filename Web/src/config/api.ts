@@ -95,6 +95,7 @@ export const API_ENDPOINTS = {
     UPDATE_BY_ID: (clientId: string) => `${API_URL}v1/clients/update/${clientId}`,
     DELETE_BY_ID: (clientId: string) => `${API_URL}v1/clients/delete/${clientId}`,
     CHANGE_PASSWORD: `${API_URL}v1/clients/changePassword`,
+    RESET_PASSWORD: (clientId: string) => `${API_URL}v1/clients/resetPassword/${clientId}`,
   },
 
   // Products endpoints

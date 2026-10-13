@@ -454,6 +454,56 @@ router.delete('/delete/:id', async (req, res) => {
 });
 
 // ChangePassword - Cambiar contraseña
+// ResetPassword - Establecer la contraseña de un cliente sin pedir la actual (uso administrativo)
+router.put('/resetPassword/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({
+        message: 'La nueva contraseña es requerida'
+      });
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({
+        message: 'La nueva contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    const client = await Client.findById(id);
+
+    if (!client) {
+      return res.status(404).json({
+        message: 'Cliente no encontrado'
+      });
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, client.password);
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        message: 'La nueva contraseña debe ser diferente a la actual'
+      });
+    }
+
+    client.password = await bcrypt.hash(newPassword, 10);
+    await client.save();
+
+    res.status(200).json({
+      message: 'Contraseña actualizada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error en resetPassword:', error);
+    res.status(500).json({
+      message: 'Error al cambiar contraseña',
+      error: error.message
+    });
+  }
+});
+
 router.post('/changePassword', async (req, res) => {
   try {
     const { clientId, currentPassword, newPassword } = req.body;
